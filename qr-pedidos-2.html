@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>QR Pedidos PRO</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --bg2: #161616;
+    --bg3: #1e1e1e;
+    --border: #2a2a2a;
+    --accent: #f5c400;
+    --accent2: #ffdb4d;
+    --text: #e8e8e8;
+    --text2: #888;
+    --text3: #555;
+    --danger: #ff4444;
+    --success: #44cc77;
+    --info: #4488ff;
+    --font-mono: 'Space Mono', monospace;
+    --font-cond: 'Barlow Condensed', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-cond); overflow: hidden; }
+
+  /* LAYOUT */
+  #app { display: flex; flex-direction: column; height: 100vh; max-width: 480px; margin: 0 auto; position: relative; }
+
+  /* HEADER */
+  #header { background: var(--bg2); border-bottom: 2px solid var(--accent); padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  #header .logo { font-family: var(--font-cond); font-weight: 900; font-size: 20px; letter-spacing: 2px; color: var(--accent); }
+  #header .version { font-family: var(--font-mono); font-size: 9px; color: var(--text3); }
+  #header .order-badge { background: var(--accent); color: #000; font-family: var(--font-mono); font-size: 10px; font-weight: 700; padding: 3px 7px; border-radius: 2px; }
+
+  /* TABS */
+  #tabs { display: flex; background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0; overflow-x: auto; }
+  #tabs::-webkit-scrollbar { display: none; }
+  .tab-btn { flex: 1; min-width: 54px; padding: 8px 4px 6px; text-align: center; cursor: pointer; border: none; background: none; color: var(--text2); font-family: var(--font-cond); font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; border-bottom: 2px solid transparent; transition: all .2s; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .tab-btn svg { width: 18px; height: 18px; }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+
+  /* CONTENT */
+  #content { flex: 1; overflow-y: auto; overflow-x: hidden; }
+  #content::-webkit-scrollbar { width: 4px; }
+  #content::-webkit-scrollbar-track { background: var(--bg); }
+  #content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .tab-panel { display: none; padding: 14px; }
+  .tab-panel.active { display: block; }
+
+  /* COMPONENTS */
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 14px; margin-bottom: 12px; }
+  .card-title { font-family: var(--font-cond); font-weight: 700; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .card-title svg { width: 14px; height: 14px; }
+
+  label { font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text2); display: block; margin-bottom: 5px; }
+  input, select, textarea { width: 100%; background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: var(--font-mono); font-size: 12px; padding: 9px 10px; border-radius: 3px; outline: none; transition: border .2s; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  select option { background: var(--bg3); }
+  textarea { resize: vertical; min-height: 60px; }
+  .field { margin-bottom: 10px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+  button { font-family: var(--font-cond); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; border: none; border-radius: 3px; transition: all .15s; }
+  .btn { background: var(--bg3); color: var(--text); border: 1px solid var(--border); padding: 9px 14px; font-size: 13px; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-primary { background: var(--accent); color: #000; padding: 10px 16px; font-size: 14px; border: none; }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 7px 12px; font-size: 12px; }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .btn-success { background: var(--success); color: #000; padding: 9px 14px; font-size: 13px; }
+  .btn-sm { padding: 5px 10px; font-size: 11px; }
+  .btn-full { width: 100%; }
+  .btn-row { display: flex; gap: 8px; }
+  .btn-row button { flex: 1; }
+
+  /* TOAST */
+  #toast { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--accent); color: #000; font-family: var(--font-mono); font-size: 11px; font-weight: 700; padding: 8px 16px; border-radius: 3px; opacity: 0; transition: all .3s; pointer-events: none; z-index: 999; white-space: nowrap; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* CAMERA */
+  #cam-container { position: relative; width: 100%; aspect-ratio: 1; background: #000; border-radius: 4px; overflow: hidden; margin-bottom: 10px; }
+  #cam-container video { width: 100%; height: 100%; object-fit: cover; }
+  #cam-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  .scan-frame { width: 60%; aspect-ratio: 1; border: 2px solid var(--accent); border-radius: 4px; box-shadow: 0 0 0 999px rgba(0,0,0,.45); }
+  .scan-line { position: absolute; width: 60%; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); animation: scanAnim 2s linear infinite; }
+  @keyframes scanAnim { 0% { top: 20%; } 100% { top: 80%; } }
+  #cam-status { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-family: var(--font-mono); font-size: 10px; color: var(--accent); }
+
+  /* QR DISPLAY */
+  #qr-display { background: #fff; padding: 12px; border-radius: 4px; display: inline-block; margin: 0 auto; }
+  .qr-wrapper { text-align: center; margin-bottom: 10px; }
+
+  /* ORDER TABLE */
+  .order-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .order-table th { font-family: var(--font-cond); font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text3); padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; }
+  .order-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .order-table tr:last-child td { border-bottom: none; }
+  .order-table tr:hover td { background: rgba(245,196,0,.04); }
+  .qty-ctrl { display: flex; align-items: center; gap: 4px; }
+  .qty-ctrl button { width: 26px; height: 26px; background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-size: 16px; line-height: 1; border-radius: 2px; }
+  .qty-ctrl span { font-family: var(--font-mono); font-size: 13px; font-weight: 700; min-width: 28px; text-align: center; color: var(--accent); }
+  .item-ref { font-family: var(--font-mono); font-size: 10px; color: var(--text2); }
+  .item-name { font-weight: 600; font-size: 13px; }
+  .item-price { font-family: var(--font-mono); font-size: 11px; color: var(--accent); white-space: nowrap; }
+  .obs-btn { background: none; border: 1px solid var(--border); color: var(--text3); font-size: 10px; padding: 3px 6px; border-radius: 2px; font-family: var(--font-cond); font-weight: 600; letter-spacing: .5px; cursor: pointer; transition: all .2s; }
+  .obs-btn.has-obs { border-color: var(--accent); color: var(--accent); }
+  .del-btn { background: none; border: none; color: var(--text3); font-size: 18px; cursor: pointer; line-height: 1; padding: 2px 4px; }
+  .del-btn:hover { color: var(--danger); }
+
+  /* ORDER FOOTER */
+  .order-footer { background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 12px; margin-bottom: 12px; }
+  .total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .total-label { font-family: var(--font-cond); font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text2); }
+  .total-value { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--accent); }
+  .total-items { font-family: var(--font-mono); font-size: 12px; color: var(--text2); }
+
+  /* REFS */
+  .ref-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .ref-item:last-child { border-bottom: none; }
+  .ref-info { flex: 1; }
+  .ref-code { font-family: var(--font-mono); font-size: 10px; color: var(--text3); }
+  .ref-name { font-weight: 600; font-size: 14px; }
+  .ref-price { font-family: var(--font-mono); font-size: 12px; color: var(--accent); }
+  .ref-add { background: var(--accent); color: #000; border: none; width: 30px; height: 30px; border-radius: 2px; font-size: 20px; line-height: 1; cursor: pointer; flex-shrink: 0; font-weight: 700; }
+  .ref-add:hover { background: var(--accent2); }
+  .search-bar { position: relative; margin-bottom: 12px; }
+  .search-bar input { padding-left: 34px; }
+  .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text3); }
+
+  /* HISTORY */
+  .hist-item { background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 12px; margin-bottom: 10px; }
+  .hist-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .hist-id { font-family: var(--font-mono); font-size: 11px; color: var(--accent); font-weight: 700; }
+  .hist-date { font-family: var(--font-mono); font-size: 10px; color: var(--text3); }
+  .hist-client { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .hist-summary { font-size: 12px; color: var(--text2); }
+  .hist-total { font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--accent); }
+  .hist-actions { display: flex; gap: 6px; margin-top: 10px; }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.8); z-index: 100; display: flex; align-items: flex-end; }
+  .modal-overlay.hidden { display: none; }
+  .modal { background: var(--bg2); border-top: 2px solid var(--accent); border-radius: 4px 4px 0 0; padding: 16px; width: 100%; max-height: 70vh; overflow-y: auto; }
+  .modal-title { font-family: var(--font-cond); font-weight: 900; font-size: 16px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+  .modal-close { float: right; background: none; border: none; color: var(--text3); font-size: 22px; cursor: pointer; line-height: 1; margin-top: -2px; }
+  .chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .chip { background: var(--bg3); border: 1px solid var(--border); color: var(--text2); padding: 5px 10px; border-radius: 20px; font-size: 12px; font-family: var(--font-cond); font-weight: 600; cursor: pointer; transition: all .15s; }
+  .chip.selected { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  /* EMPTY STATE */
+  .empty { text-align: center; padding: 40px 20px; color: var(--text3); }
+  .empty svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: .3; }
+  .empty p { font-size: 13px; font-family: var(--font-cond); letter-spacing: 1px; text-transform: uppercase; }
+
+  /* BADGE */
+  .badge { display: inline-block; font-family: var(--font-mono); font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 2px; }
+  .badge-accent { background: var(--accent); color: #000; }
+  .badge-info { background: var(--info); color: #fff; }
+
+  /* CONFIG */
+  .config-section { margin-bottom: 18px; }
+  .config-section-title { font-family: var(--font-cond); font-weight: 700; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  .radio-group { display: flex; flex-direction: column; gap: 6px; }
+  .radio-opt { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 10px; border: 1px solid var(--border); border-radius: 3px; transition: border .2s; }
+  .radio-opt:hover { border-color: var(--text3); }
+  .radio-opt.selected { border-color: var(--accent); }
+  .radio-opt input { width: auto; }
+  .radio-opt span { font-size: 13px; font-weight: 600; }
+  .radio-opt small { font-family: var(--font-mono); font-size: 10px; color: var(--text3); display: block; }
+
+  /* PRINT */
+  @media print {
+    body { background: #fff; }
+    #app { display: none; }
+    #print-area { display: block !important; }
+  }
+  #print-area { display: none; }
+  .label-sheet { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; }
+  .avery-label { width: 63mm; height: 38mm; border: 1px dashed #ccc; padding: 6px; display: flex; align-items: center; gap: 8px; break-inside: avoid; }
+  .avery-label .label-qr canvas { width: 60px !important; height: 60px !important; }
+  .avery-label .label-info { flex: 1; font-family: monospace; }
+  .avery-label .label-info .l-ref { font-size: 10px; font-weight: bold; }
+  .avery-label .label-info .l-name { font-size: 9px; }
+  .avery-label .label-info .l-qty { font-size: 14px; font-weight: bold; }
+
+  /* DRAG DROP */
+  .drop-zone { border: 2px dashed var(--border); border-radius: 4px; padding: 24px; text-align: center; cursor: pointer; transition: all .2s; }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: rgba(245,196,0,.05); }
+  .drop-zone p { font-size: 13px; color: var(--text3); font-family: var(--font-cond); letter-spacing: 1px; }
+  .drop-zone .drop-icon { font-size: 32px; margin-bottom: 8px; }
+
+  /* SCROLLABLE TABS on small */
+  @media (max-width: 380px) {
+    .tab-btn { min-width: 48px; font-size: 9px; }
+  }
+
+  /* VARIANT BADGE */
+  .variant-tag { font-family: var(--font-mono); font-size: 9px; background: var(--bg3); border: 1px solid var(--border); color: var(--text3); padding: 1px 5px; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div id="print-area"></div>
+
+<div id="app">
+  <!-- HEADER -->
+  <div id="header">
+    <div>
+      <div class="logo">QR PEDIDOS</div>
+      <div class="version">PRO v3 · SWIMWEAR BCN</div>
+    </div>
+    <div id="order-badge-wrap"></div>
+  </div>
+
+  <!-- TABS -->
+  <div id="tabs">
+    <button class="tab-btn active" onclick="switchTab('gen')" id="tab-gen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="17" width="4" height="4"/><rect x="20" y="14" width="1" height="1"/></svg>
+      Gen
+    </button>
+    <button class="tab-btn" onclick="switchTab('scan')" id="tab-scan">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>
+      Scan
+    </button>
+    <button class="tab-btn" onclick="switchTab('order')" id="tab-order">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      Pedido
+    </button>
+    <button class="tab-btn" onclick="switchTab('refs')" id="tab-refs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      Refs
+    </button>
+    <button class="tab-btn" onclick="switchTab('history')" id="tab-history">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Historial
+    </button>
+    <button class="tab-btn" onclick="switchTab('config')" id="tab-config">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+      Config
+    </button>
+  </div>
+
+  <!-- CONTENT -->
+  <div id="content">
+
+    <!-- TAB: GENERADOR QR -->
+    <div class="tab-panel active" id="panel-gen">
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Generar QR
+        </div>
+        <div class="field">
+          <label>Contenido del QR</label>
+          <input type="text" id="gen-input" placeholder="Ref, URL, texto..." oninput="generateQR()">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Nombre producto</label>
+            <input type="text" id="gen-name" placeholder="Descripción">
+          </div>
+          <div class="field">
+            <label>Precio</label>
+            <input type="number" id="gen-price" placeholder="0.00" step="0.01" min="0">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Variante 1</label>
+            <input type="text" id="gen-var1" placeholder="Color, talla...">
+          </div>
+          <div class="field">
+            <label>Variante 2</label>
+            <input type="text" id="gen-var2" placeholder="Material...">
+          </div>
+        </div>
+        <div class="qr-wrapper" id="qr-result-wrap" style="display:none">
+          <div id="qr-display"><div id="qr-canvas"></div></div>
+          <div style="margin-top:10px" class="btn-row">
+            <button class="btn btn-sm" onclick="downloadQR()">⬇ PNG</button>
+            <button class="btn btn-sm" onclick="addFromGen()">＋ Al pedido</button>
+            <button class="btn btn-sm" onclick="printSingleLabel()">🖨 Etiqueta</button>
+          </div>
+        </div>
+        <div class="empty" id="qr-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <p>Introduce texto para generar</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: ESCÁNER -->
+    <div class="tab-panel" id="panel-scan">
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>
+          Escanear QR
+        </div>
+        <div id="cam-container" style="display:none">
+          <video id="cam-video" playsinline autoplay muted></video>
+          <div id="cam-overlay">
+            <div class="scan-frame"></div>
+            <div class="scan-line"></div>
+          </div>
+          <div id="cam-status">Buscando QR...</div>
+        </div>
+        <div class="btn-row" style="margin-bottom:12px">
+          <button class="btn btn-primary" id="cam-btn" onclick="toggleCamera()">
+            📷 Activar cámara
+          </button>
+          <button class="btn" onclick="stopCamera()">⏹ Parar</button>
+        </div>
+        <div style="border-top:1px solid var(--border); padding-top:12px; margin-top:4px">
+          <label>O introduce código manualmente</label>
+          <div class="btn-row">
+            <input type="text" id="scan-manual" placeholder="Ref o código...">
+            <button class="btn btn-primary btn-sm" style="flex-shrink:0;min-width:70px" onclick="processManual()">OK</button>
+          </div>
+        </div>
+      </div>
+      <div class="card" id="scan-result-card" style="display:none">
+        <div class="card-title">Resultado</div>
+        <div id="scan-result-content"></div>
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn btn-primary" onclick="addScannedToOrder()">＋ Añadir al pedido</button>
+          <button class="btn" onclick="clearScanResult()">✕ Limpiar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: PEDIDO -->
+    <div class="tab-panel" id="panel-order">
+      <div class="card" style="padding:10px 14px">
+        <div class="card-title" style="margin-bottom:8px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/></svg>
+          Pedido actual
+        </div>
+        <div class="field-row" style="margin-bottom:0">
+          <div class="field" style="margin-bottom:0">
+            <label>Cliente</label>
+            <input type="text" id="order-client" placeholder="Nombre cliente">
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label>ID Pedido</label>
+            <input type="text" id="order-id" placeholder="Auto" readonly style="color:var(--text3)">
+          </div>
+        </div>
+      </div>
+
+      <div id="order-items-wrap">
+        <div class="empty" id="order-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
+          <p>Pedido vacío · Escanea o añade desde Refs</p>
+        </div>
+        <table class="order-table" id="order-table" style="display:none">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Qty</th>
+              <th>Total</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="order-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="order-footer" id="order-footer" style="display:none">
+        <div class="total-row">
+          <span class="total-label">Líneas</span>
+          <span class="total-items" id="total-lines">0</span>
+        </div>
+        <div class="total-row">
+          <span class="total-label">Unidades</span>
+          <span class="total-items" id="total-units">0</span>
+        </div>
+        <div class="total-row" style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px">
+          <span class="total-label" style="font-size:14px">TOTAL</span>
+          <span class="total-value" id="total-amount">0.00</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Notas globales</div>
+        <div class="field">
+          <textarea id="order-notes" placeholder="Instrucciones generales del pedido..." rows="2"></textarea>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-bottom:8px">
+        <button class="btn btn-primary" onclick="closeOrder()">✓ Cerrar pedido</button>
+        <button class="btn" onclick="exportCSV()">⬇ CSV</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-sm" onclick="printLabels()">🖨 Etiquetas Avery</button>
+        <button class="btn btn-danger btn-sm" onclick="clearOrder()">🗑 Vaciar</button>
+      </div>
+    </div>
+
+    <!-- TAB: REFERENCIAS -->
+    <div class="tab-panel" id="panel-refs">
+      <div class="search-bar">
+        <span class="search-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </span>
+        <input type="text" id="refs-search" placeholder="Buscar por ref, nombre..." oninput="filterRefs()">
+      </div>
+      <div class="card" id="refs-list-card">
+        <div id="refs-list"></div>
+        <div class="empty" id="refs-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/></svg>
+          <p>Sin referencias · Importa CSV o añade manual</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Añadir referencia</div>
+        <div class="field-row">
+          <div class="field">
+            <label>Código ref</label>
+            <input type="text" id="new-ref-code" placeholder="REF-001">
+          </div>
+          <div class="field">
+            <label>Nombre</label>
+            <input type="text" id="new-ref-name" placeholder="Descripción">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Precio</label>
+            <input type="number" id="new-ref-price" placeholder="0.00" step="0.01" min="0">
+          </div>
+          <div class="field">
+            <label>Variante</label>
+            <input type="text" id="new-ref-variant" placeholder="Color/talla">
+          </div>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="addRef()">＋ Añadir referencia</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Importar CSV</div>
+        <div class="drop-zone" id="csv-drop" onclick="document.getElementById('csv-file').click()" ondragover="csvDragOver(event)" ondrop="csvDrop(event)" ondragleave="this.classList.remove('dragover')">
+          <div class="drop-icon">📂</div>
+          <p>Arrastra CSV aquí o toca para seleccionar</p>
+          <p style="font-size:11px;margin-top:4px;color:var(--text3)">Columnas: codigo, nombre, precio, variante</p>
+        </div>
+        <input type="file" id="csv-file" accept=".csv" style="display:none" onchange="importCSV(event)">
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn btn-sm" onclick="exportRefsCSV()">⬇ Exportar catálogo</button>
+          <button class="btn btn-danger btn-sm" onclick="clearRefs()">🗑 Limpiar catálogo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: HISTORIAL -->
+    <div class="tab-panel" id="panel-history">
+      <div id="history-list">
+        <div class="empty" id="history-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <p>Sin pedidos cerrados</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: CONFIGURACIÓN -->
+    <div class="tab-panel" id="panel-config">
+      <div class="card">
+        <div class="config-section">
+          <div class="config-section-title">General</div>
+          <div class="field-row">
+            <div class="field">
+              <label>Moneda</label>
+              <select id="cfg-currency" onchange="saveConfig()">
+                <option value="€">€ EUR</option>
+                <option value="$">$ USD</option>
+                <option value="£">£ GBP</option>
+                <option value="R$">R$ BRL</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Prefijo pedido</label>
+              <input type="text" id="cfg-prefix" placeholder="PED-" oninput="saveConfig(); updateOrderId()">
+            </div>
+          </div>
+          <div class="field">
+            <label>Empresa / Feria</label>
+            <input type="text" id="cfg-company" placeholder="Swimwear Barcelona" oninput="saveConfig()">
+          </div>
+        </div>
+        <div class="config-section">
+          <div class="config-section-title">Backend / Integración</div>
+          <div class="radio-group" id="backend-opts">
+            <label class="radio-opt" id="opt-local">
+              <input type="radio" name="backend" value="local" onchange="saveConfig()"> 
+              <div>
+                <span>Solo local</span>
+                <small>Datos guardados en el dispositivo</small>
+              </div>
+            </label>
+            <label class="radio-opt" id="opt-sheets">
+              <input type="radio" name="backend" value="sheets" onchange="saveConfig(); toggleBackendFields()">
+              <div>
+                <span>Google Sheets</span>
+                <small>Exportar a hoja de cálculo vía Apps Script</small>
+              </div>
+            </label>
+            <label class="radio-opt" id="opt-supabase">
+              <input type="radio" name="backend" value="supabase" onchange="saveConfig(); toggleBackendFields()">
+              <div>
+                <span>Supabase</span>
+                <small>Base de datos PostgreSQL en tiempo real</small>
+              </div>
+            </label>
+            <label class="radio-opt" id="opt-api">
+              <input type="radio" name="backend" value="api" onchange="saveConfig(); toggleBackendFields()">
+              <div>
+                <span>REST API</span>
+                <small>Endpoint personalizado</small>
+              </div>
+            </label>
+          </div>
+          <div id="backend-fields" style="margin-top:10px; display:none">
+            <div class="field">
+              <label id="backend-url-label">URL / Endpoint</label>
+              <input type="text" id="cfg-backend-url" placeholder="https://..." oninput="saveConfig()">
+            </div>
+            <div class="field" id="backend-key-field">
+              <label>API Key / Anon Key</label>
+              <input type="password" id="cfg-backend-key" placeholder="sk-..." oninput="saveConfig()">
+            </div>
+            <button class="btn btn-sm" onclick="testBackend()">🔗 Probar conexión</button>
+          </div>
+        </div>
+        <div class="config-section">
+          <div class="config-section-title">Backup</div>
+          <div class="btn-row">
+            <button class="btn btn-sm" onclick="exportBackup()">⬇ Exportar JSON</button>
+            <button class="btn btn-sm" onclick="document.getElementById('import-backup').click()">⬆ Importar JSON</button>
+          </div>
+          <input type="file" id="import-backup" accept=".json" style="display:none" onchange="importBackup(event)">
+        </div>
+        <div class="config-section">
+          <div class="config-section-title">Observaciones predefinidas</div>
+          <div id="obs-presets-list" style="margin-bottom:8px"></div>
+          <div class="btn-row">
+            <input type="text" id="new-preset" placeholder="Nueva observación...">
+            <button class="btn btn-sm" style="min-width:50px;flex-shrink:0" onclick="addObsPreset()">＋</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end content -->
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay hidden" id="obs-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeObsModal()">×</button>
+    <div class="modal-title">Observación de línea</div>
+    <div style="margin-bottom:10px">
+      <label>Predefinidas</label>
+      <div class="chip-list" id="obs-chips"></div>
+    </div>
+    <div class="field">
+      <label>Texto libre</label>
+      <textarea id="obs-textarea" rows="3" placeholder="Escribe observación..."></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="saveObs()">✓ Guardar</button>
+      <button class="btn" onclick="closeObsModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="hist-detail-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('hist-detail-modal').classList.add('hidden')">×</button>
+    <div class="modal-title" id="hist-detail-title">Detalle pedido</div>
+    <div id="hist-detail-content"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let state = {
+  order: { id: '', client: '', items: [], notes: '' },
+  refs: [],
+  history: [],
+  config: {
+    currency: '€',
+    prefix: 'PED-',
+    company: 'Swimwear Barcelona',
+    backend: 'local',
+    backendUrl: '',
+    backendKey: '',
+    obsPresets: ['Urgente','Muestra','Sin embalaje','Confirmar stock','Color alternativo']
+  }
+};
+
+let currentTab = 'gen';
+let camStream = null;
+let camRunning = false;
+let scanInterval = null;
+let scannedData = null;
+let editingObsIdx = null;
+let qrInstance = null;
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+function init() {
+  loadState();
+  updateOrderId();
+  renderRefs();
+  renderHistory();
+  renderObsPresets();
+  renderConfigUI();
+  updateOrderBadge();
+}
+
+// ═══════════════════════════════════════════════
+// PERSISTENCE
+// ═══════════════════════════════════════════════
+function saveState() {
+  try { localStorage.setItem('qrpro_state', JSON.stringify(state)); } catch(e) {}
+}
+function loadState() {
+  try {
+    const s = localStorage.getItem('qrpro_state');
+    if (s) {
+      const parsed = JSON.parse(s);
+      state = { ...state, ...parsed };
+      if (!state.config.obsPresets) state.config.obsPresets = ['Urgente','Muestra','Sin embalaje','Confirmar stock'];
+    }
+  } catch(e) {}
+}
+function saveConfig() {
+  state.config.currency = document.getElementById('cfg-currency').value;
+  state.config.prefix = document.getElementById('cfg-prefix').value || 'PED-';
+  state.config.company = document.getElementById('cfg-company').value;
+  const sel = document.querySelector('input[name="backend"]:checked');
+  if (sel) state.config.backend = sel.value;
+  state.config.backendUrl = document.getElementById('cfg-backend-url').value;
+  state.config.backendKey = document.getElementById('cfg-backend-key').value;
+  saveState();
+  renderOrderTable();
+}
+
+// ═══════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════
+function switchTab(tab) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (currentTab === 'scan' && tab !== 'scan') stopCamera();
+  currentTab = tab;
+  if (tab === 'order') renderOrderTable();
+  if (tab === 'refs') renderRefs();
+  if (tab === 'history') renderHistory();
+  if (tab === 'config') renderConfigUI();
+}
+
+// ═══════════════════════════════════════════════
+// QR GENERATOR
+// ═══════════════════════════════════════════════
+let qrGenTimer = null;
+function generateQR() {
+  clearTimeout(qrGenTimer);
+  qrGenTimer = setTimeout(_doGenQR, 300);
+}
+function _doGenQR() {
+  const val = document.getElementById('gen-input').value.trim();
+  if (!val) {
+    document.getElementById('qr-result-wrap').style.display = 'none';
+    document.getElementById('qr-empty').style.display = 'block';
+    return;
+  }
+  document.getElementById('qr-result-wrap').style.display = 'block';
+  document.getElementById('qr-empty').style.display = 'none';
+  const canvas = document.getElementById('qr-canvas');
+  canvas.innerHTML = '';
+  try {
+    qrInstance = new QRCode(canvas, {
+      text: val, width: 200, height: 200,
+      colorDark: '#000000', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } catch(e) { canvas.innerHTML = '<p style="color:red;padding:10px">Error generando QR</p>'; }
+}
+function downloadQR() {
+  const canvas = document.querySelector('#qr-canvas canvas');
+  if (!canvas) return;
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = (document.getElementById('gen-input').value || 'qr') + '.png';
+  a.click();
+}
+function addFromGen() {
+  const ref = document.getElementById('gen-input').value.trim();
+  if (!ref) { toast('Introduce un código'); return; }
+  addItemToOrder({
+    ref, name: document.getElementById('gen-name').value || ref,
+    price: parseFloat(document.getElementById('gen-price').value) || 0,
+    var1: document.getElementById('gen-var1').value,
+    var2: document.getElementById('gen-var2').value
+  });
+  toast('Añadido al pedido');
+}
+
+// ═══════════════════════════════════════════════
+// CAMERA / SCANNER
+// ═══════════════════════════════════════════════
+async function toggleCamera() {
+  if (camRunning) { stopCamera(); return; }
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    const video = document.getElementById('cam-video');
+    video.srcObject = camStream;
+    document.getElementById('cam-container').style.display = 'block';
+    document.getElementById('cam-btn').textContent = '📷 Detener';
+    camRunning = true;
+    scanInterval = setInterval(doScan, 300);
+  } catch(e) {
+    toast('No se puede acceder a la cámara');
+  }
+}
+function stopCamera() {
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+  document.getElementById('cam-container').style.display = 'none';
+  document.getElementById('cam-btn').textContent = '📷 Activar cámara';
+  camRunning = false;
+}
+function doScan() {
+  const video = document.getElementById('cam-video');
+  if (!video.videoWidth) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0);
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+  if (code) {
+    stopCamera();
+    processScanned(code.data);
+  }
+}
+function processManual() {
+  const val = document.getElementById('scan-manual').value.trim();
+  if (!val) { toast('Introduce un código'); return; }
+  processScanned(val);
+  document.getElementById('scan-manual').value = '';
+}
+function processScanned(data) {
+  scannedData = data;
+  // Try to match in refs
+  const ref = state.refs.find(r => r.code === data || r.name === data);
+  let html = `<div style="margin-bottom:8px"><span class="item-ref">${data}</span></div>`;
+  if (ref) {
+    html += `<div class="item-name">${ref.name}</div>`;
+    html += `<div class="item-price">${state.config.currency}${parseFloat(ref.price || 0).toFixed(2)}</div>`;
+    if (ref.variant) html += `<div style="margin-top:4px"><span class="variant-tag">${ref.variant}</span></div>`;
+  } else {
+    html += `<div style="color:var(--text3);font-size:12px">No encontrado en catálogo</div>`;
+  }
+  document.getElementById('scan-result-content').innerHTML = html;
+  document.getElementById('scan-result-card').style.display = 'block';
+  toast('QR detectado');
+}
+function addScannedToOrder() {
+  if (!scannedData) return;
+  const ref = state.refs.find(r => r.code === scannedData || r.name === scannedData);
+  addItemToOrder(ref ? {
+    ref: ref.code, name: ref.name,
+    price: parseFloat(ref.price || 0),
+    var1: ref.variant || ''
+  } : { ref: scannedData, name: scannedData, price: 0 });
+  toast('Añadido al pedido');
+  clearScanResult();
+  switchTab('order');
+}
+function clearScanResult() {
+  scannedData = null;
+  document.getElementById('scan-result-card').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════
+// ORDER
+// ═══════════════════════════════════════════════
+function updateOrderId() {
+  if (!state.order.id) {
+    const prefix = state.config.prefix || 'PED-';
+    state.order.id = prefix + Date.now().toString().slice(-6);
+  }
+  const el = document.getElementById('order-id');
+  if (el) el.value = state.order.id;
+  updateOrderBadge();
+}
+function updateOrderBadge() {
+  const el = document.getElementById('order-badge-wrap');
+  if (!el) return;
+  const count = state.order.items.reduce((a, i) => a + i.qty, 0);
+  el.innerHTML = count > 0 ? `<div class="order-badge">${count} uds</div>` : '';
+}
+function addItemToOrder(item) {
+  // check if same ref exists
+  const existing = state.order.items.find(i => i.ref === item.ref && i.var1 === (item.var1 || ''));
+  if (existing) { existing.qty++; }
+  else {
+    state.order.items.push({
+      ref: item.ref || '',
+      name: item.name || item.ref || '',
+      price: parseFloat(item.price) || 0,
+      qty: 1,
+      var1: item.var1 || '',
+      var2: item.var2 || '',
+      obs: ''
+    });
+  }
+  saveState();
+  updateOrderBadge();
+  if (currentTab === 'order') renderOrderTable();
+}
+function renderOrderTable() {
+  const items = state.order.items;
+  const empty = document.getElementById('order-empty');
+  const table = document.getElementById('order-table');
+  const footer = document.getElementById('order-footer');
+  if (items.length === 0) {
+    empty.style.display = 'block'; table.style.display = 'none'; footer.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none'; table.style.display = 'table'; footer.style.display = 'block';
+  const curr = state.config.currency || '€';
+  const tbody = document.getElementById('order-tbody');
+  tbody.innerHTML = items.map((it, idx) => `
+    <tr>
+      <td>
+        <div class="item-name">${it.name}</div>
+        <div class="item-ref">${it.ref}${it.var1 ? ' · <span class="variant-tag">' + it.var1 + '</span>' : ''}</div>
+        <button class="obs-btn ${it.obs ? 'has-obs' : ''}" onclick="openObsModal(${idx})">${it.obs ? '📝 ' + it.obs.substring(0,15) + (it.obs.length > 15 ? '…' : '') : '+ Obs'}</button>
+      </td>
+      <td>
+        <div class="qty-ctrl">
+          <button onclick="changeQty(${idx},-1)">−</button>
+          <span>${it.qty}</span>
+          <button onclick="changeQty(${idx},1)">+</button>
+        </div>
+      </td>
+      <td><div class="item-price">${curr}${(it.price * it.qty).toFixed(2)}</div></td>
+      <td><button class="del-btn" onclick="removeItem(${idx})">×</button></td>
+    </tr>
+  `).join('');
+
+  let totalAmt = 0, totalUnits = 0;
+  items.forEach(it => { totalAmt += it.price * it.qty; totalUnits += it.qty; });
+  document.getElementById('total-lines').textContent = items.length;
+  document.getElementById('total-units').textContent = totalUnits;
+  document.getElementById('total-amount').textContent = curr + totalAmt.toFixed(2);
+  updateOrderBadge();
+}
+function changeQty(idx, delta) {
+  state.order.items[idx].qty = Math.max(1, state.order.items[idx].qty + delta);
+  saveState(); renderOrderTable();
+}
+function removeItem(idx) {
+  state.order.items.splice(idx, 1);
+  saveState(); renderOrderTable();
+}
+function clearOrder() {
+  if (!confirm('¿Vaciar el pedido actual?')) return;
+  state.order = { id: '', client: '', items: [], notes: '' };
+  document.getElementById('order-client').value = '';
+  document.getElementById('order-notes').value = '';
+  saveState(); updateOrderId(); renderOrderTable(); updateOrderBadge();
+}
+function closeOrder() {
+  if (state.order.items.length === 0) { toast('El pedido está vacío'); return; }
+  const client = document.getElementById('order-client').value.trim();
+  const notes = document.getElementById('order-notes').value;
+  const order = {
+    ...state.order,
+    client: client || 'Sin nombre',
+    notes,
+    closedAt: new Date().toISOString(),
+    total: state.order.items.reduce((a, i) => a + i.price * i.qty, 0)
+  };
+  state.history.unshift(order);
+  // send to backend
+  sendToBackend(order);
+  state.order = { id: '', client: '', items: [], notes: '' };
+  document.getElementById('order-client').value = '';
+  document.getElementById('order-notes').value = '';
+  saveState(); updateOrderId(); renderOrderTable(); renderHistory(); updateOrderBadge();
+  toast('Pedido cerrado · ' + order.id);
+}
+function exportCSV() {
+  const items = state.order.items;
+  if (!items.length) { toast('Pedido vacío'); return; }
+  const curr = state.config.currency;
+  let csv = 'Referencia,Nombre,Variante,Precio,Cantidad,Total,Observacion\n';
+  items.forEach(it => {
+    csv += `"${it.ref}","${it.name}","${it.var1}",${it.price},${it.qty},${(it.price*it.qty).toFixed(2)},"${it.obs}"\n`;
+  });
+  csv += `\n,,,,,TOTAL: ${curr}${items.reduce((a,i)=>a+i.price*i.qty,0).toFixed(2)},`;
+  downloadText(csv, state.order.id + '.csv', 'text/csv');
+  toast('CSV exportado');
+}
+
+// ═══════════════════════════════════════════════
+// OBSERVATIONS MODAL
+// ═══════════════════════════════════════════════
+function openObsModal(idx) {
+  editingObsIdx = idx;
+  const presets = state.config.obsPresets || [];
+  const current = state.order.items[idx].obs || '';
+  document.getElementById('obs-textarea').value = current;
+  const chips = document.getElementById('obs-chips');
+  chips.innerHTML = presets.map(p => `<div class="chip ${current === p ? 'selected' : ''}" onclick="selectChip(this,'${p}')">${p}</div>`).join('');
+  document.getElementById('obs-modal').classList.remove('hidden');
+}
+function selectChip(el, val) {
+  document.querySelectorAll('#obs-chips .chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('obs-textarea').value = val;
+}
+function saveObs() {
+  if (editingObsIdx === null) return;
+  state.order.items[editingObsIdx].obs = document.getElementById('obs-textarea').value;
+  saveState(); renderOrderTable(); closeObsModal();
+}
+function closeObsModal() {
+  document.getElementById('obs-modal').classList.add('hidden');
+  editingObsIdx = null;
+}
+
+// ═══════════════════════════════════════════════
+// REFS
+// ═══════════════════════════════════════════════
+function addRef() {
+  const code = document.getElementById('new-ref-code').value.trim();
+  const name = document.getElementById('new-ref-name').value.trim();
+  if (!code || !name) { toast('Código y nombre requeridos'); return; }
+  const price = parseFloat(document.getElementById('new-ref-price').value) || 0;
+  const variant = document.getElementById('new-ref-variant').value.trim();
+  state.refs.push({ code, name, price, variant });
+  saveState(); renderRefs();
+  document.getElementById('new-ref-code').value = '';
+  document.getElementById('new-ref-name').value = '';
+  document.getElementById('new-ref-price').value = '';
+  document.getElementById('new-ref-variant').value = '';
+  toast('Referencia añadida');
+}
+function filterRefs() {
+  renderRefs(document.getElementById('refs-search').value);
+}
+function renderRefs(search = '') {
+  const list = document.getElementById('refs-list');
+  const empty = document.getElementById('refs-empty');
+  let refs = state.refs;
+  if (search) {
+    const q = search.toLowerCase();
+    refs = refs.filter(r => r.code.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+  }
+  if (refs.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  const curr = state.config.currency || '€';
+  list.innerHTML = refs.map((r, i) => `
+    <div class="ref-item">
+      <div class="ref-info">
+        <div class="ref-code">${r.code}${r.variant ? ' · <span class="variant-tag">' + r.variant + '</span>' : ''}</div>
+        <div class="ref-name">${r.name}</div>
+        <div class="ref-price">${curr}${parseFloat(r.price||0).toFixed(2)}</div>
+      </div>
+      <button class="ref-add" onclick="addRefToOrder(${state.refs.indexOf(r)})">+</button>
+    </div>
+  `).join('');
+}
+function addRefToOrder(idx) {
+  const r = state.refs[idx];
+  addItemToOrder({ ref: r.code, name: r.name, price: r.price, var1: r.variant });
+  toast('Añadido: ' + r.name);
+}
+function clearRefs() {
+  if (!confirm('¿Eliminar todo el catálogo?')) return;
+  state.refs = []; saveState(); renderRefs(); toast('Catálogo vacío');
+}
+function exportRefsCSV() {
+  if (!state.refs.length) { toast('Catálogo vacío'); return; }
+  let csv = 'codigo,nombre,precio,variante\n';
+  state.refs.forEach(r => { csv += `"${r.code}","${r.name}",${r.price},"${r.variant||''}"\n`; });
+  downloadText(csv, 'catalogo.csv', 'text/csv');
+  toast('Catálogo exportado');
+}
+function csvDragOver(e) {
+  e.preventDefault(); document.getElementById('csv-drop').classList.add('dragover');
+}
+function csvDrop(e) {
+  e.preventDefault(); document.getElementById('csv-drop').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) parseCSVFile(file);
+}
+function importCSV(e) {
+  const file = e.target.files[0];
+  if (file) parseCSVFile(file);
+}
+function parseCSVFile(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const lines = e.target.result.split('\n').filter(l => l.trim());
+    let count = 0;
+    lines.forEach((line, i) => {
+      if (i === 0 && line.toLowerCase().includes('codigo')) return;
+      const cols = parseCSVLine(line);
+      if (cols.length >= 2) {
+        state.refs.push({ code: cols[0]||'', name: cols[1]||'', price: parseFloat(cols[2])||0, variant: cols[3]||'' });
+        count++;
+      }
+    });
+    saveState(); renderRefs();
+    toast(`${count} referencias importadas`);
+  };
+  reader.readAsText(file);
+}
+function parseCSVLine(line) {
+  const result = []; let cur = ''; let inQ = false;
+  for (let c of line) {
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { result.push(cur.trim()); cur = ''; }
+    else { cur += c; }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+// ═══════════════════════════════════════════════
+// HISTORY
+// ═══════════════════════════════════════════════
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  const empty = document.getElementById('history-empty');
+  if (!state.history.length) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    list.appendChild(empty);
+    return;
+  }
+  const curr = state.config.currency || '€';
+  empty.style.display = 'none';
+  list.innerHTML = state.history.map((o, idx) => `
+    <div class="hist-item">
+      <div class="hist-header">
+        <div>
+          <div class="hist-id">${o.id}</div>
+          <div class="hist-date">${new Date(o.closedAt).toLocaleString('es-ES')}</div>
+        </div>
+        <div class="hist-total">${curr}${parseFloat(o.total||0).toFixed(2)}</div>
+      </div>
+      <div class="hist-client">${o.client || 'Sin nombre'}</div>
+      <div class="hist-summary">${o.items.length} líneas · ${o.items.reduce((a,i)=>a+i.qty,0)} uds</div>
+      <div class="hist-actions">
+        <button class="btn btn-sm" onclick="showHistDetail(${idx})">👁 Ver</button>
+        <button class="btn btn-sm" onclick="exportHistCSV(${idx})">⬇ CSV</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteHistItem(${idx})">🗑</button>
+      </div>
+    </div>
+  `).join('') + `<div id="history-empty" style="display:none"></div>`;
+}
+function showHistDetail(idx) {
+  const o = state.history[idx];
+  const curr = state.config.currency || '€';
+  document.getElementById('hist-detail-title').textContent = o.id + ' — ' + o.client;
+  let html = `<div style="margin-bottom:10px;font-size:12px;color:var(--text3)">${new Date(o.closedAt).toLocaleString('es-ES')}</div>`;
+  html += `<table class="order-table" style="margin-bottom:12px">
+    <thead><tr><th>Ref</th><th>Nombre</th><th>Qty</th><th>Total</th></tr></thead>
+    <tbody>`;
+  o.items.forEach(it => {
+    html += `<tr><td><span class="item-ref">${it.ref}</span></td><td>${it.name}</td><td>${it.qty}</td><td class="item-price">${curr}${(it.price*it.qty).toFixed(2)}</td></tr>`;
+    if (it.obs) html += `<tr><td colspan="4" style="color:var(--accent);font-size:11px;padding-top:0">📝 ${it.obs}</td></tr>`;
+  });
+  html += `</tbody></table>`;
+  if (o.notes) html += `<div style="font-size:12px;color:var(--text2);border-top:1px solid var(--border);padding-top:8px">Notas: ${o.notes}</div>`;
+  html += `<div style="text-align:right;margin-top:10px;font-family:var(--font-mono);font-size:18px;color:var(--accent);font-weight:700">TOTAL: ${curr}${parseFloat(o.total||0).toFixed(2)}</div>`;
+  document.getElementById('hist-detail-content').innerHTML = html;
+  document.getElementById('hist-detail-modal').classList.remove('hidden');
+}
+function exportHistCSV(idx) {
+  const o = state.history[idx];
+  const curr = state.config.currency;
+  let csv = `Pedido: ${o.id}\nCliente: ${o.client}\nFecha: ${new Date(o.closedAt).toLocaleString('es-ES')}\n\n`;
+  csv += 'Referencia,Nombre,Variante,Precio,Cantidad,Total,Observacion\n';
+  o.items.forEach(it => { csv += `"${it.ref}","${it.name}","${it.var1||''}",${it.price},${it.qty},${(it.price*it.qty).toFixed(2)},"${it.obs||''}"\n`; });
+  csv += `\n,,,,,TOTAL: ${curr}${parseFloat(o.total||0).toFixed(2)},`;
+  downloadText(csv, o.id + '.csv', 'text/csv');
+  toast('CSV exportado');
+}
+function deleteHistItem(idx) {
+  if (!confirm('¿Eliminar este pedido del historial?')) return;
+  state.history.splice(idx, 1);
+  saveState(); renderHistory();
+}
+
+// ═══════════════════════════════════════════════
+// CONFIG UI
+// ═══════════════════════════════════════════════
+function renderConfigUI() {
+  const c = state.config;
+  document.getElementById('cfg-currency').value = c.currency || '€';
+  document.getElementById('cfg-prefix').value = c.prefix || 'PED-';
+  document.getElementById('cfg-company').value = c.company || '';
+  const radios = document.querySelectorAll('input[name="backend"]');
+  radios.forEach(r => { r.checked = r.value === c.backend; });
+  document.getElementById('cfg-backend-url').value = c.backendUrl || '';
+  document.getElementById('cfg-backend-key').value = c.backendKey || '';
+  toggleBackendFields();
+  renderObsPresets();
+}
+function toggleBackendFields() {
+  const sel = document.querySelector('input[name="backend"]:checked');
+  const val = sel ? sel.value : 'local';
+  const fields = document.getElementById('backend-fields');
+  fields.style.display = val === 'local' ? 'none' : 'block';
+  const urlLabel = document.getElementById('backend-url-label');
+  const keyField = document.getElementById('backend-key-field');
+  if (val === 'sheets') { urlLabel.textContent = 'Apps Script URL'; keyField.style.display = 'none'; }
+  else if (val === 'supabase') { urlLabel.textContent = 'Supabase URL'; keyField.style.display = 'block'; }
+  else if (val === 'api') { urlLabel.textContent = 'Endpoint REST'; keyField.style.display = 'block'; }
+}
+function renderObsPresets() {
+  const list = document.getElementById('obs-presets-list');
+  if (!list) return;
+  const presets = state.config.obsPresets || [];
+  list.innerHTML = presets.map((p, i) => `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <span style="flex:1;font-size:13px;font-family:var(--font-cond)">${p}</span>
+      <button class="btn btn-danger btn-sm" onclick="removeObsPreset(${i})">×</button>
+    </div>
+  `).join('');
+}
+function addObsPreset() {
+  const val = document.getElementById('new-preset').value.trim();
+  if (!val) return;
+  state.config.obsPresets.push(val);
+  document.getElementById('new-preset').value = '';
+  saveState(); renderObsPresets();
+}
+function removeObsPreset(i) {
+  state.config.obsPresets.splice(i, 1);
+  saveState(); renderObsPresets();
+}
+
+// ═══════════════════════════════════════════════
+// BACKEND
+// ═══════════════════════════════════════════════
+async function sendToBackend(order) {
+  const c = state.config;
+  if (c.backend === 'local' || !c.backendUrl) return;
+  try {
+    if (c.backend === 'sheets') {
+      await fetch(c.backendUrl, { method: 'POST', body: JSON.stringify(order), headers: { 'Content-Type': 'application/json' } });
+    } else if (c.backend === 'supabase') {
+      await fetch(c.backendUrl + '/rest/v1/pedidos', {
+        method: 'POST', body: JSON.stringify(order),
+        headers: { 'Content-Type': 'application/json', 'apikey': c.backendKey, 'Authorization': 'Bearer ' + c.backendKey }
+      });
+    } else if (c.backend === 'api') {
+      await fetch(c.backendUrl, { method: 'POST', body: JSON.stringify(order), headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + c.backendKey } });
+    }
+    toast('Enviado al backend');
+  } catch(e) { toast('Error al enviar al backend'); }
+}
+async function testBackend() {
+  const c = state.config;
+  if (!c.backendUrl) { toast('Introduce URL primero'); return; }
+  try {
+    const res = await fetch(c.backendUrl, { method: 'GET' });
+    toast(res.ok ? '✓ Conexión OK' : 'Error HTTP: ' + res.status);
+  } catch(e) { toast('No se pudo conectar'); }
+}
+
+// ═══════════════════════════════════════════════
+// BACKUP
+// ═══════════════════════════════════════════════
+function exportBackup() {
+  downloadText(JSON.stringify(state, null, 2), 'qrpedidos-backup.json', 'application/json');
+  toast('Backup exportado');
+}
+function importBackup(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      state = { ...state, ...parsed };
+      saveState(); init();
+      toast('Backup importado');
+    } catch { toast('Error leyendo backup'); }
+  };
+  reader.readAsText(file);
+}
+
+// ═══════════════════════════════════════════════
+// PRINT / LABELS
+// ═══════════════════════════════════════════════
+function printLabels() {
+  if (!state.order.items.length) { toast('Pedido vacío'); return; }
+  buildLabelsPrint(state.order.items, state.order.id);
+}
+function printSingleLabel() {
+  const ref = document.getElementById('gen-input').value.trim();
+  if (!ref) return;
+  buildLabelsPrint([{ ref, name: document.getElementById('gen-name').value || ref, qty: 1, price: document.getElementById('gen-price').value || 0 }], ref);
+}
+function buildLabelsPrint(items, title) {
+  const area = document.getElementById('print-area');
+  area.innerHTML = `<h2 style="font-family:monospace;margin-bottom:10px">${title}</h2><div class="label-sheet" id="label-sheet-inner"></div>`;
+  const sheet = area.querySelector('#label-sheet-inner');
+  items.forEach(it => {
+    for (let i = 0; i < it.qty; i++) {
+      const label = document.createElement('div');
+      label.className = 'avery-label';
+      const qDiv = document.createElement('div');
+      qDiv.className = 'label-qr';
+      try {
+        new QRCode(qDiv, { text: it.ref, width: 60, height: 60, colorDark: '#000', colorLight: '#fff' });
+      } catch(e) {}
+      const info = document.createElement('div');
+      info.className = 'label-info';
+      info.innerHTML = `<div class="l-ref">${it.ref}</div><div class="l-name">${it.name}</div><div class="l-qty">×${it.qty}</div>`;
+      label.appendChild(qDiv); label.appendChild(info);
+      sheet.appendChild(label);
+    }
+  });
+  window.print();
+}
+
+// ═══════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+function downloadText(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// START
+init();
+</script>
+</body>
+</html>
