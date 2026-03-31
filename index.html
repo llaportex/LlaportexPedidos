@@ -15,7 +15,1475 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style><!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>QR Pedidos PRO</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#f5c400">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="QR Pedidos">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+:root {
+  --bg: #0d0d0d;
+  --bg2: #161616;
+  --bg3: #1e1e1e;
+  --bg4: #242424;
+  --border: #2a2a2a;
+  --accent: #f5c400;
+  --accent2: #ffdb4d;
+  --text: #e8e8e8;
+  --text2: #888;
+  --text3: #444;
+  --danger: #ff4444;
+  --success: #44cc77;
+  --info: #4488ff;
+  --font-mono: 'Space Mono', monospace;
+  --font-cond: 'Barlow Condensed', sans-serif;
+  --radius: 4px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-cond); }
+input, select, textarea, button { font-family: var(--font-cond); }
+
+/* ── APP SHELL ── */
+#app { display: flex; flex-direction: column; height: 100vh; max-width: 520px; margin: 0 auto; }
+
+/* ── HEADER ── */
+#header {
+  background: var(--bg2);
+  border-bottom: 2px solid var(--accent);
+  padding: 10px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.logo { font-weight: 900; font-size: 18px; letter-spacing: 3px; color: var(--accent); }
+.logo span { color: var(--text2); font-weight: 300; }
+#sync-status { font-family: var(--font-mono); font-size: 9px; display: flex; align-items: center; gap: 5px; }
+#sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); transition: background .3s; }
+#sync-dot.online { background: var(--success); }
+#sync-dot.saving { background: var(--accent); animation: pulse .6s infinite; }
+
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+/* ── WIZARD STEPPER ── */
+#stepper {
+  background: var(--bg2);
+  padding: 12px 16px 10px;
+  display: flex; align-items: center;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+.step {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  flex: 1; cursor: pointer; position: relative;
+}
+.step::after {
+  content: '';
+  position: absolute;
+  top: 14px; left: 60%; width: 80%; height: 1px;
+  background: var(--border);
+  transition: background .3s;
+}
+.step:last-child::after { display: none; }
+.step.done::after { background: var(--accent); }
+.step-circle {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  color: var(--text3); background: var(--bg3);
+  transition: all .3s; z-index: 1; position: relative;
+}
+.step.active .step-circle { border-color: var(--accent); color: var(--accent); background: rgba(245,196,0,.1); }
+.step.done .step-circle { background: var(--accent); border-color: var(--accent); color: #000; }
+.step-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text3); }
+.step.active .step-label { color: var(--accent); }
+.step.done .step-label { color: var(--text2); }
+
+/* ── CONTENT ── */
+#content {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 16px;
+}
+#content::-webkit-scrollbar { width: 3px; }
+#content::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* ── PANELS ── */
+.panel { display: none; animation: fadeIn .25s ease; }
+.panel.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ── FORM ── */
+.section-title {
+  font-weight: 900; font-size: 22px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text); margin-bottom: 4px;
+}
+.section-sub { font-size: 13px; color: var(--text2); margin-bottom: 18px; letter-spacing: .5px; }
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text3); margin-bottom: 5px; }
+.field input, .field select, .field textarea {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--font-cond); font-size: 15px;
+  padding: 11px 12px; border-radius: var(--radius); outline: none;
+  transition: border .2s;
+}
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+.field textarea { resize: none; min-height: 70px; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* ── BUTTONS ── */
+button { cursor: pointer; border: none; border-radius: var(--radius); font-family: var(--font-cond); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; transition: all .15s; }
+.btn { background: var(--bg3); color: var(--text); border: 1px solid var(--border); padding: 10px 16px; font-size: 13px; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn-primary { background: var(--accent); color: #000; padding: 13px 20px; font-size: 15px; border: none; width: 100%; }
+.btn-primary:hover { background: var(--accent2); }
+.btn-primary:disabled { background: var(--bg3); color: var(--text3); cursor: not-allowed; }
+.btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 7px 12px; font-size: 12px; }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.btn-row { display: flex; gap: 8px; }
+.btn-back { background: none; border: 1px solid var(--border); color: var(--text2); padding: 10px 16px; font-size: 13px; }
+.btn-back:hover { border-color: var(--text2); color: var(--text); }
+
+/* ── BOTTOM NAV ACTIONS ── */
+#bottom-actions {
+  background: var(--bg2); border-top: 1px solid var(--border);
+  padding: 12px 16px; display: flex; gap: 10px; flex-shrink: 0;
+}
+#bottom-actions .btn-back { flex-shrink: 0; }
+#bottom-actions .btn-primary { flex: 1; }
+
+/* ── CAMERA ── */
+#cam-wrap { position: relative; width: 100%; aspect-ratio: 1; background: #000; border-radius: var(--radius); overflow: hidden; margin-bottom: 12px; }
+#cam-wrap video { width: 100%; height: 100%; object-fit: cover; }
+.scan-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.scan-box { width: 58%; aspect-ratio: 1; border: 2px solid var(--accent); border-radius: 4px; box-shadow: 0 0 0 999px rgba(0,0,0,.5); }
+.scan-line { position: absolute; width: 58%; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); animation: scanY 2s linear infinite; }
+@keyframes scanY { 0% { top: 21%; } 100% { top: 79%; } }
+.cam-hint { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-family: var(--font-mono); font-size: 10px; color: var(--accent); }
+
+/* ── ITEMS LIST ── */
+.item-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.item-row:last-child { border-bottom: none; }
+.item-info { flex: 1; min-width: 0; }
+.item-ref { font-family: var(--font-mono); font-size: 10px; color: var(--text3); }
+.item-name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item-price { font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
+.qty-ctrl { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.qty-ctrl button { width: 28px; height: 28px; background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-size: 16px; line-height: 1; border-radius: 2px; }
+.qty-ctrl span { font-family: var(--font-mono); font-size: 14px; font-weight: 700; min-width: 30px; text-align: center; color: var(--accent); }
+.item-del { background: none; border: none; color: var(--text3); font-size: 20px; line-height: 1; padding: 4px; }
+.item-del:hover { color: var(--danger); }
+.obs-chip { font-size: 10px; font-family: var(--font-cond); font-weight: 600; background: rgba(245,196,0,.1); border: 1px solid rgba(245,196,0,.3); color: var(--accent); padding: 2px 7px; border-radius: 20px; display: inline-block; margin-top: 3px; }
+
+/* ── REFS SEARCH ── */
+.search-wrap { position: relative; margin-bottom: 12px; }
+.search-wrap input { padding-left: 36px; }
+.search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text3); pointer-events: none; }
+.ref-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.ref-row:last-child { border-bottom: none; }
+.ref-add-btn { background: var(--accent); color: #000; border: none; width: 32px; height: 32px; border-radius: 2px; font-size: 22px; line-height: 1; font-weight: 700; flex-shrink: 0; }
+.ref-add-btn:hover { background: var(--accent2); }
+
+/* ── TOTALS ── */
+.totals-box { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-top: 14px; }
+.total-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 13px; }
+.total-row:last-child { margin-bottom: 0; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px; }
+.total-row:last-child .total-val { font-size: 20px; color: var(--accent); font-family: var(--font-mono); font-weight: 700; }
+.total-lbl { color: var(--text2); font-weight: 600; letter-spacing: .5px; text-transform: uppercase; font-size: 11px; }
+
+/* ── REVIEW ── */
+.review-block { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+.review-block-title { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+.review-field { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; }
+.review-field .lbl { color: var(--text3); }
+.review-field .val { color: var(--text); font-weight: 600; text-align: right; max-width: 60%; }
+
+/* ── DONE ── */
+.done-wrap { text-align: center; padding: 30px 10px; }
+.done-icon { font-size: 64px; margin-bottom: 16px; animation: popIn .4s cubic-bezier(.34,1.56,.64,1); }
+@keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.done-title { font-weight: 900; font-size: 28px; letter-spacing: 2px; color: var(--accent); margin-bottom: 8px; }
+.done-sub { font-size: 14px; color: var(--text2); margin-bottom: 24px; }
+.done-id { font-family: var(--font-mono); font-size: 13px; background: var(--bg3); border: 1px solid var(--border); padding: 8px 14px; border-radius: var(--radius); display: inline-block; margin-bottom: 24px; color: var(--accent); }
+
+/* ── TABS (catálogo + config) ── */
+#main-tabs { display: flex; background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.mtab { flex: 1; padding: 10px 4px 8px; text-align: center; cursor: pointer; border: none; background: none; color: var(--text2); font-family: var(--font-cond); font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; border-bottom: 2px solid transparent; }
+.mtab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── EMPTY ── */
+.empty { text-align: center; padding: 32px 20px; color: var(--text3); }
+.empty .empty-icon { font-size: 40px; margin-bottom: 10px; opacity: .3; }
+.empty p { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(10px);
+  background: var(--accent); color: #000; font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  padding: 8px 16px; border-radius: 3px; opacity: 0; transition: all .25s; pointer-events: none; z-index: 999;
+  white-space: nowrap; max-width: 90vw; overflow: hidden; text-overflow: ellipsis;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.error { background: var(--danger); color: #fff; }
+
+/* ── MODAL ── */
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.8); z-index: 200; display: flex; align-items: flex-end; }
+.modal-bg.hidden { display: none; }
+.modal { background: var(--bg2); border-top: 2px solid var(--accent); border-radius: var(--radius) var(--radius) 0 0; padding: 16px; width: 100%; max-height: 75vh; overflow-y: auto; }
+.modal-title { font-weight: 900; font-size: 16px; letter-spacing: 1px; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+.modal-close { float: right; background: none; border: none; color: var(--text3); font-size: 24px; line-height: 1; cursor: pointer; }
+.chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.chip { background: var(--bg3); border: 1px solid var(--border); color: var(--text2); padding: 6px 12px; border-radius: 20px; font-size: 12px; font-family: var(--font-cond); font-weight: 600; cursor: pointer; }
+.chip.sel { background: var(--accent); color: #000; border-color: var(--accent); }
+
+/* ── HISTORY ── */
+.hist-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 10px; }
+.hist-hdr { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+.hist-id { font-family: var(--font-mono); font-size: 11px; color: var(--accent); font-weight: 700; }
+.hist-date { font-family: var(--font-mono); font-size: 10px; color: var(--text3); }
+.hist-client { font-weight: 700; font-size: 14px; }
+.hist-meta { font-size: 12px; color: var(--text2); margin-bottom: 8px; }
+.hist-total { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--accent); }
+
+/* ── CONFIG ── */
+.cfg-section { margin-bottom: 18px; }
+.cfg-title { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+
+/* ── DROP ZONE ── */
+.drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 20px; text-align: center; cursor: pointer; transition: all .2s; }
+.drop-zone:hover, .drop-zone.over { border-color: var(--accent); background: rgba(245,196,0,.04); }
+.drop-zone p { font-size: 12px; color: var(--text3); letter-spacing: .5px; }
+
+/* ── PRINT ── */
+@media print {
+  body { background: #fff; }
+  #app { display: none; }
+  #print-area { display: block !important; }
+}
+#print-area { display: none; }
+.avery-label { width: 63mm; height: 38mm; border: 1px dashed #ccc; padding: 6px; display: inline-flex; align-items: center; gap: 8px; break-inside: avoid; }
+.label-info .l-ref { font-size: 10px; font-weight: bold; }
+.label-info .l-name { font-size: 9px; }
+.label-info .l-qty { font-size: 14px; font-weight: bold; }
+
+/* ── QR DISPLAY ── */
+.qr-center { text-align: center; margin-bottom: 12px; }
+#qr-canvas { display: inline-block; background: #fff; padding: 10px; border-radius: 4px; }
+
+@media (max-width: 380px) { .step-label { display: none; } }
+</style>
+</head>
+<body>
+<div id="print-area"></div>
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div class="logo">QR PEDIDOS <span>PRO</span></div>
+    <div id="sync-status">
+      <div id="sync-dot"></div>
+      <span id="sync-label" style="color:var(--text3)">Local</span>
+    </div>
+  </div>
+
+  <!-- MAIN TABS -->
+  <div id="main-tabs">
+    <button class="mtab active" onclick="switchMain('wizard')">📋 Pedido</button>
+    <button class="mtab" onclick="switchMain('clients')">👥 Clientes</button>
+    <button class="mtab" onclick="switchMain('catalog')">📦 Catálogo</button>
+    <button class="mtab" onclick="switchMain('history')">🕐 Historial</button>
+    <button class="mtab" onclick="switchMain('config')">⚙️ Config</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- MAIN: WIZARD                               -->
+  <!-- ══════════════════════════════════════════ -->
+  <div id="main-wizard" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+
+    <!-- STEPPER -->
+    <div id="stepper">
+      <div class="step active" id="s1" onclick="goStep(1)">
+        <div class="step-circle" id="sc1">1</div>
+        <div class="step-label">Cliente</div>
+      </div>
+      <div class="step" id="s2" onclick="goStep(2)">
+        <div class="step-circle" id="sc2">2</div>
+        <div class="step-label">Items</div>
+      </div>
+      <div class="step" id="s3" onclick="goStep(3)">
+        <div class="step-circle" id="sc3">3</div>
+        <div class="step-label">Revisar</div>
+      </div>
+      <div class="step" id="s4" onclick="goStep(4)">
+        <div class="step-circle" id="sc4">4</div>
+        <div class="step-label">Listo</div>
+      </div>
+    </div>
+
+    <div id="content">
+
+      <!-- STEP 1: CLIENTE -->
+      <div class="panel active" id="panel-1">
+        <div class="section-title">Cliente</div>
+        <div class="section-sub">Busca o rellena los datos</div>
+
+        <!-- BUSCADOR DE CLIENTES -->
+        <div style="position:relative;margin-bottom:10px">
+          <div style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+          <input type="text" id="client-search" placeholder="Buscar cliente..." oninput="searchClients()" autocomplete="off"
+            style="padding-left:36px;background:var(--bg3);border:1px solid var(--accent);color:var(--text);font-family:var(--font-cond);font-size:15px;padding-top:11px;padding-bottom:11px;border-radius:var(--radius);width:100%;outline:none">
+        </div>
+        <div id="client-results" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;display:none;max-height:200px;overflow-y:auto"></div>
+
+        <!-- FORMULARIO -->
+        <div id="client-form">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3)" id="client-form-label">Nuevo cliente</div>
+            <button id="btn-save-client" onclick="saveClientToDB()" style="background:rgba(245,196,0,.1);border:1px solid var(--accent);color:var(--accent);font-family:var(--font-cond);font-weight:700;font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:5px 10px;border-radius:var(--radius);cursor:pointer">
+              💾 Guardar cliente
+            </button>
+          </div>
+          <div class="field">
+            <label>Nombre *</label>
+            <input type="text" id="f-name" placeholder="Nombre completo">
+          </div>
+          <div class="field">
+            <label>Empresa</label>
+            <input type="text" id="f-company" placeholder="Empresa">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>NIF / CIF</label>
+              <input type="text" id="f-nif" placeholder="B12345678">
+            </div>
+            <div class="field">
+              <label>País</label>
+              <input type="text" id="f-country" placeholder="España">
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Teléfono</label>
+              <input type="tel" id="f-phone" placeholder="+34 600...">
+            </div>
+            <div class="field">
+              <label>Email</label>
+              <input type="email" id="f-email" placeholder="correo@...">
+            </div>
+          </div>
+          <div class="field">
+            <label>Atención a persona</label>
+            <input type="text" id="f-attn" placeholder="Persona de contacto">
+          </div>
+          <div class="field">
+            <label>Dirección de entrega</label>
+            <textarea id="f-address" placeholder="Calle, ciudad, país..."></textarea>
+          </div>
+          <div class="field">
+            <label>Notas del pedido</label>
+            <textarea id="f-notes" placeholder="Instrucciones especiales..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2: ITEMS -->
+      <div class="panel" id="panel-2">
+        <div class="section-title">Items</div>
+        <div class="section-sub" id="items-sub">0 productos · 0 unidades</div>
+
+        <!-- Cam / Scan -->
+        <div id="cam-wrap" style="display:none">
+          <video id="cam-video" playsinline autoplay muted></video>
+          <div class="scan-overlay">
+            <div class="scan-box"></div>
+            <div class="scan-line"></div>
+          </div>
+          <div class="cam-hint">Apunta al código QR</div>
+        </div>
+
+        <div class="btn-row" style="margin-bottom:12px">
+          <button class="btn" id="cam-btn" onclick="toggleCamera()" style="flex:1">📷 Cámara QR</button>
+          <button class="btn btn-sm" onclick="stopCamera()">⏹</button>
+        </div>
+
+        <!-- Manual / buscar refs -->
+        <div class="search-wrap">
+          <span class="search-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input type="text" id="items-search" placeholder="Buscar en catálogo o código manual..." oninput="filterItemsSearch()">
+        </div>
+        <div id="items-search-results" style="margin-bottom:12px"></div>
+
+        <!-- Items en pedido -->
+        <div id="items-list-wrap">
+          <div class="empty" id="items-empty">
+            <div class="empty-icon">📦</div>
+            <p>Escanea un QR o busca en el catálogo</p>
+          </div>
+          <div id="items-list"></div>
+        </div>
+
+        <div class="totals-box" id="items-totals" style="display:none">
+          <div class="total-row"><span class="total-lbl">Líneas</span><span id="t-lines">0</span></div>
+          <div class="total-row"><span class="total-lbl">Unidades</span><span id="t-units">0</span></div>
+          <div class="total-row"><span class="total-lbl">Total</span><span class="total-val" id="t-total">€0.00</span></div>
+        </div>
+      </div>
+
+      <!-- STEP 3: REVISAR -->
+      <div class="panel" id="panel-3">
+        <div class="section-title">Revisar</div>
+        <div class="section-sub">Confirma antes de cerrar</div>
+        <div id="review-content"></div>
+      </div>
+
+      <!-- STEP 4: LISTO -->
+      <div class="panel" id="panel-4">
+        <div class="done-wrap">
+          <div class="done-icon">✅</div>
+          <div class="done-title">Pedido cerrado</div>
+          <div class="done-sub">El pedido ha sido guardado correctamente</div>
+          <div class="done-id" id="done-id">—</div>
+          <div class="btn-row" style="justify-content:center;margin-bottom:12px">
+            <button class="btn btn-sm" onclick="exportLastCSV()">⬇ CSV</button>
+            <button class="btn btn-sm" onclick="printLastLabels()">🖨 Etiquetas</button>
+          </div>
+          <button class="btn-primary" onclick="newOrder()" style="max-width:280px;margin:0 auto;display:block">
+            ＋ Nuevo pedido
+          </button>
+        </div>
+      </div>
+
+    </div><!-- end content -->
+
+    <!-- BOTTOM ACTIONS -->
+    <div id="bottom-actions">
+      <button class="btn-back" id="btn-back" onclick="prevStep()" style="display:none">← Atrás</button>
+      <button class="btn-primary" id="btn-next" onclick="nextStep()">Continuar →</button>
+    </div>
+
+  </div><!-- end main-wizard -->
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- MAIN: CATÁLOGO                             -->
+  <!-- ══════════════════════════════════════════ -->
+  <div id="main-catalog" style="display:none;flex:1;overflow-y:auto;padding:16px">
+    <div class="section-title" style="margin-bottom:4px">Catálogo</div>
+    <div class="section-sub">Referencias disponibles</div>
+
+    <div class="search-wrap">
+      <span class="search-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </span>
+      <input type="text" id="cat-search" placeholder="Buscar referencia..." oninput="renderCatalog()">
+    </div>
+
+    <div id="cat-list">
+      <div class="empty"><div class="empty-icon">📦</div><p>Catálogo vacío</p></div>
+    </div>
+
+    <!-- Añadir ref -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:14px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:12px">Añadir referencia</div>
+      <div class="field-row">
+        <div class="field"><label>Código *</label><input type="text" id="new-code" placeholder="REF-001"></div>
+        <div class="field"><label>Nombre *</label><input type="text" id="new-name" placeholder="Descripción"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Precio</label><input type="number" id="new-price" placeholder="0.00" step="0.01"></div>
+        <div class="field"><label>Variante</label><input type="text" id="new-variant" placeholder="Color/talla"></div>
+      </div>
+      <button class="btn-primary" onclick="addRef()" style="font-size:13px;padding:10px">＋ Añadir al catálogo</button>
+    </div>
+
+    <!-- Import CSV -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:12px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:10px">Importar CSV</div>
+      <div class="drop-zone" onclick="document.getElementById('csv-in').click()" id="drop-z" ondragover="e=>{e.preventDefault();document.getElementById('drop-z').classList.add('over')}" ondrop="csvDrop(event)" ondragleave="document.getElementById('drop-z').classList.remove('over')">
+        <div style="font-size:28px;margin-bottom:6px">📂</div>
+        <p>Arrastra CSV o toca para seleccionar</p>
+        <p style="margin-top:4px;font-size:11px">Columnas: codigo, nombre, precio, variante</p>
+      </div>
+      <input type="file" id="csv-in" accept=".csv" style="display:none" onchange="importCSV(event)">
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn btn-sm" onclick="exportRefsCSV()">⬇ Exportar catálogo</button>
+        <button class="btn btn-danger btn-sm" onclick="clearRefs()">🗑 Limpiar</button>
+      </div>
+    </div>
+
+    <!-- QR Generator -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:12px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:12px">Generar QR</div>
+      <div class="field"><label>Contenido</label><input type="text" id="qr-gen-input" placeholder="Código, URL..." oninput="genQR()"></div>
+      <div class="qr-center" id="qr-gen-wrap" style="display:none">
+        <div id="qr-canvas"></div>
+        <div class="btn-row" style="justify-content:center;margin-top:10px">
+          <button class="btn btn-sm" onclick="downloadQR()">⬇ PNG</button>
+          <button class="btn btn-sm" onclick="printQRLabel()">🖨 Etiqueta</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- MAIN: CLIENTES                             -->
+  <!-- ══════════════════════════════════════════ -->
+  <div id="main-clients" style="display:none;flex:1;overflow-y:auto;padding:16px">
+    <div class="section-title" style="margin-bottom:4px">Clientes</div>
+    <div class="section-sub">Base de datos de clientes</div>
+
+    <div class="search-wrap">
+      <span class="search-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </span>
+      <input type="text" id="clients-search" placeholder="Buscar cliente..." oninput="renderClientsList()">
+    </div>
+
+    <div id="clients-list"></div>
+
+    <!-- Añadir cliente -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:14px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:12px">Añadir cliente</div>
+      <div class="field"><label>Nombre *</label><input type="text" id="nc-name" placeholder="Nombre completo"></div>
+      <div class="field"><label>Empresa</label><input type="text" id="nc-company" placeholder="Empresa"></div>
+      <div class="field-row">
+        <div class="field"><label>NIF / CIF</label><input type="text" id="nc-nif" placeholder="B12345678"></div>
+        <div class="field"><label>País</label><input type="text" id="nc-country" placeholder="España"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Teléfono</label><input type="tel" id="nc-phone" placeholder="+34 600..."></div>
+        <div class="field"><label>Email</label><input type="email" id="nc-email" placeholder="correo@..."></div>
+      </div>
+      <div class="field"><label>Atención a persona</label><input type="text" id="nc-attn" placeholder="Persona de contacto"></div>
+      <div class="field"><label>Dirección de entrega</label><textarea id="nc-address" placeholder="Calle, ciudad, país..."></textarea></div>
+      <button class="btn-primary" onclick="addClientManual()" style="font-size:13px;padding:10px">＋ Añadir cliente</button>
+    </div>
+
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:12px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:10px">Importar / Exportar</div>
+      <div class="btn-row">
+        <button class="btn btn-sm" onclick="exportClientsCSV()">⬇ Exportar CSV</button>
+        <button class="btn btn-sm" onclick="document.getElementById('clients-csv-in').click()">⬆ Importar CSV</button>
+        <button class="btn btn-danger btn-sm" onclick="clearClients()">🗑 Limpiar</button>
+      </div>
+      <input type="file" id="clients-csv-in" accept=".csv" style="display:none" onchange="importClientsCSV(event)">
+      <div style="font-size:10px;color:var(--text3);margin-top:8px">CSV: nombre, empresa, nif, pais, telefono, email, atencion, direccion</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <div id="main-history" style="display:none;flex:1;overflow-y:auto;padding:16px">
+    <div class="section-title" style="margin-bottom:4px">Historial</div>
+    <div class="section-sub">Pedidos cerrados</div>
+    <div id="history-list">
+      <div class="empty"><div class="empty-icon">🕐</div><p>Sin pedidos cerrados</p></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- MAIN: CONFIG                               -->
+  <!-- ══════════════════════════════════════════ -->
+  <div id="main-config" style="display:none;flex:1;overflow-y:auto;padding:16px">
+    <div class="section-title" style="margin-bottom:4px">Configuración</div>
+    <div class="section-sub">Ajustes de la app</div>
+
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
+      <div class="cfg-section">
+        <div class="cfg-title">General</div>
+        <div class="field-row">
+          <div class="field">
+            <label>Moneda</label>
+            <select id="cfg-currency" onchange="saveConfig()">
+              <option value="€">€ EUR</option>
+              <option value="$">$ USD</option>
+              <option value="£">£ GBP</option>
+              <option value="R$">R$ BRL</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Prefijo pedido</label>
+            <input type="text" id="cfg-prefix" placeholder="PED-" oninput="saveConfig()">
+          </div>
+        </div>
+        <div class="field">
+          <label>Empresa / Feria</label>
+          <input type="text" id="cfg-company" placeholder="Swimwear Barcelona" oninput="saveConfig()">
+        </div>
+      </div>
+
+      <div class="cfg-section">
+        <div class="cfg-title">Observaciones rápidas</div>
+        <div id="obs-list" style="margin-bottom:8px"></div>
+        <div class="btn-row">
+          <input type="text" id="new-obs" placeholder="Nueva observación...">
+          <button class="btn btn-sm" style="flex-shrink:0" onclick="addObsPreset()">＋</button>
+        </div>
+      </div>
+
+      <div class="cfg-section">
+        <div class="cfg-title">Backup</div>
+        <div class="btn-row">
+          <button class="btn btn-sm" onclick="exportBackup()">⬇ Exportar JSON</button>
+          <button class="btn btn-sm" onclick="document.getElementById('backup-in').click()">⬆ Importar JSON</button>
+        </div>
+        <input type="file" id="backup-in" accept=".json" style="display:none" onchange="importBackup(event)">
+      </div>
+
+      <div class="cfg-section">
+        <div class="cfg-title">Sincronización Supabase</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Conectado a la nube. Los datos se sincronizan automáticamente entre móvil y ordenador.</div>
+        <button class="btn btn-sm" onclick="forceSyncFromCloud()">🔄 Forzar sincronización</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end app -->
+
+<!-- MODALS -->
+<div class="modal-bg hidden" id="obs-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeObsModal()">×</button>
+    <div class="modal-title">Observación</div>
+    <div class="chip-list" id="obs-chips"></div>
+    <div class="field">
+      <label>Texto libre</label>
+      <textarea id="obs-text" rows="3" placeholder="Escribe..."></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="saveObs()" style="font-size:13px;padding:10px">✓ Guardar</button>
+      <button class="btn" onclick="closeObsModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// SUPABASE
+// ══════════════════════════════════════════════
+const SUPA_URL = 'https://kcmnrnmgjapgjbiadvrc.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjbW5ybm1namFwZ2piaWFkdnJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MjYzOTQsImV4cCI6MjA5MDUwMjM5NH0.cMNilqwlCO_pHfxn8mMoHF-gngLqpXJRMCWRGAL9Pks';
+let supa = null;
+try { supa = window.supabase.createClient(SUPA_URL, SUPA_KEY); } catch(e) {}
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let state = {
+  order: { id: '', client: {}, items: [], notes: '' },
+  refs: [],
+  clients: [],
+  history: [],
+  config: { currency: '€', prefix: 'PED-', company: 'Swimwear Barcelona', obsPresets: ['Urgente','Muestra','Sin embalaje','Confirmar stock','Color alternativo'] }
+};
+let currentStep = 1;
+let currentMain = 'wizard';
+let camStream = null;
+let camRunning = false;
+let scanTick = null;
+let obsEditIdx = null;
+let lastOrder = null;
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+function init() {
+  loadLocal();
+  newOrderId();
+  renderCatalog();
+  renderHistory();
+  renderObsList();
+  applyConfig();
+  supaInit();
+}
+
+// ══════════════════════════════════════════════
+// PERSISTENCE
+// ══════════════════════════════════════════════
+function saveLocal() {
+  try { localStorage.setItem('qrpro5', JSON.stringify(state)); } catch(e) {}
+}
+function loadLocal() {
+  try {
+    const s = localStorage.getItem('qrpro5');
+    if (s) { const p = JSON.parse(s); state = { ...state, ...p }; }
+  } catch(e) {}
+}
+function saveConfig() {
+  state.config.currency = document.getElementById('cfg-currency').value;
+  state.config.prefix = document.getElementById('cfg-prefix').value || 'PED-';
+  state.config.company = document.getElementById('cfg-company').value;
+  saveLocal(); saveToCloud();
+}
+function applyConfig() {
+  const c = state.config;
+  const el = id => document.getElementById(id);
+  if (el('cfg-currency')) el('cfg-currency').value = c.currency || '€';
+  if (el('cfg-prefix')) el('cfg-prefix').value = c.prefix || 'PED-';
+  if (el('cfg-company')) el('cfg-company').value = c.company || '';
+}
+
+// ══════════════════════════════════════════════
+// SUPABASE SYNC
+// ══════════════════════════════════════════════
+async function supaInit() {
+  if (!supa) return;
+  setSyncStatus('saving');
+  await loadFromCloud();
+  setSyncStatus('online');
+  // Realtime
+  supa.channel('qr-state-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'qr_state' }, p => {
+      if (p.new?.data) {
+        const r = JSON.parse(p.new.data);
+        state.refs = r.refs || state.refs;
+        state.history = r.history || state.history;
+        saveLocal(); renderCatalog(); renderHistory();
+        toast('🔄 Sincronizado');
+      }
+    }).subscribe();
+}
+async function loadFromCloud() {
+  if (!supa) return;
+  try {
+    const { data } = await supa.from('qr_state').select('*').eq('id', 1).single();
+    if (data?.data) {
+      const r = JSON.parse(data.data);
+      if (r.refs) state.refs = r.refs;
+      if (r.history) state.history = r.history;
+      if (r.clients) state.clients = r.clients;
+      if (r.config) state.config = { ...state.config, ...r.config };
+      saveLocal(); applyConfig(); renderCatalog(); renderHistory(); renderObsList(); renderClientsList();
+      toast('☁ Datos cargados');
+    }
+  } catch(e) {}
+}
+async function saveToCloud() {
+  if (!supa) return;
+  setSyncStatus('saving');
+  try {
+    const data = JSON.stringify({ refs: state.refs, history: state.history, config: state.config, clients: state.clients });
+    await supa.from('qr_state').upsert({ id: 1, data, updated_at: new Date().toISOString() });
+    setSyncStatus('online');
+  } catch(e) { setSyncStatus('offline'); }
+}
+async function saveOrderToCloud(order) {
+  if (!supa) return;
+  try {
+    await supa.from('qr_pedidos').insert({
+      order_id: order.id, client: order.client.name || '',
+      items: JSON.stringify(order.items), notes: order.notes || '',
+      total: order.total, closed_at: order.closedAt
+    });
+  } catch(e) {}
+}
+function forceSyncFromCloud() { loadFromCloud(); }
+function setSyncStatus(s) {
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  if (!dot) return;
+  dot.className = s;
+  lbl.textContent = s === 'online' ? 'Sync ✓' : s === 'saving' ? 'Guardando...' : 'Local';
+  lbl.style.color = s === 'online' ? 'var(--success)' : s === 'saving' ? 'var(--accent)' : 'var(--text3)';
+}
+
+// ══════════════════════════════════════════════
+// MAIN NAVIGATION
+// ══════════════════════════════════════════════
+function switchMain(tab) {
+  ['wizard','clients','catalog','history','config'].forEach(t => {
+    const el = document.getElementById('main-' + t);
+    if (el) el.style.display = 'none';
+  });
+  document.querySelectorAll('.mtab').forEach(b => b.classList.remove('active'));
+  document.getElementById('main-' + tab).style.display = tab === 'wizard' ? 'flex' : 'block';
+  document.querySelectorAll('.mtab')[['wizard','clients','catalog','history','config'].indexOf(tab)].classList.add('active');
+  currentMain = tab;
+  if (tab === 'history') renderHistory();
+  if (tab === 'catalog') renderCatalog();
+  if (tab === 'clients') renderClientsList();
+  if (tab === 'config') { renderObsList(); applyConfig(); }
+}
+
+// ══════════════════════════════════════════════
+// WIZARD STEPS
+// ══════════════════════════════════════════════
+function goStep(n) {
+  if (n > currentStep && !canAdvance()) return;
+  currentStep = n;
+  renderStep();
+}
+function nextStep() {
+  if (!canAdvance()) return;
+  if (currentStep === 3) { closeOrder(); return; }
+  if (currentStep < 4) { currentStep++; renderStep(); }
+}
+function prevStep() {
+  if (currentStep > 1) { currentStep--; renderStep(); }
+}
+function canAdvance() {
+  if (currentStep === 1) {
+    const name = document.getElementById('f-name')?.value.trim();
+    if (!name) { toast('El nombre del cliente es obligatorio', true); return false; }
+  }
+  if (currentStep === 2) {
+    if (state.order.items.length === 0) { toast('Añade al menos un producto', true); return false; }
+  }
+  return true;
+}
+function renderStep() {
+  stopCamera();
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + currentStep).classList.add('active');
+  // Stepper
+  for (let i = 1; i <= 4; i++) {
+    const s = document.getElementById('s' + i);
+    s.className = 'step' + (i === currentStep ? ' active' : i < currentStep ? ' done' : '');
+    const sc = document.getElementById('sc' + i);
+    sc.textContent = i < currentStep ? '✓' : i;
+  }
+  // Back/Next buttons
+  const btnBack = document.getElementById('btn-back');
+  const btnNext = document.getElementById('btn-next');
+  const bottomActions = document.getElementById('bottom-actions');
+  btnBack.style.display = currentStep > 1 ? 'block' : 'none';
+  if (currentStep === 4) {
+    bottomActions.style.display = 'none';
+  } else {
+    bottomActions.style.display = 'flex';
+    btnNext.textContent = currentStep === 3 ? '✓ Cerrar pedido' : 'Continuar →';
+  }
+  if (currentStep === 3) buildReview();
+  if (currentStep === 2) renderItemsList();
+}
+
+// ══════════════════════════════════════════════
+// STEP 1 – SAVE CLIENT
+// ══════════════════════════════════════════════
+function getClient() {
+  return {
+    name: document.getElementById('f-name')?.value.trim() || '',
+    company: document.getElementById('f-company')?.value.trim() || '',
+    phone: document.getElementById('f-phone')?.value.trim() || '',
+    email: document.getElementById('f-email')?.value.trim() || '',
+    attn: document.getElementById('f-attn')?.value.trim() || '',
+    address: document.getElementById('f-address')?.value.trim() || ''
+  };
+}
+
+// ══════════════════════════════════════════════
+// STEP 2 – ITEMS
+// ══════════════════════════════════════════════
+async function toggleCamera() {
+  if (camRunning) { stopCamera(); return; }
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    const v = document.getElementById('cam-video');
+    v.srcObject = camStream;
+    document.getElementById('cam-wrap').style.display = 'block';
+    document.getElementById('cam-btn').textContent = '📷 Parar cámara';
+    camRunning = true;
+    scanTick = setInterval(doScan, 300);
+  } catch(e) { toast('No se puede acceder a la cámara', true); }
+}
+function stopCamera() {
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  if (scanTick) { clearInterval(scanTick); scanTick = null; }
+  const w = document.getElementById('cam-wrap');
+  if (w) w.style.display = 'none';
+  const b = document.getElementById('cam-btn');
+  if (b) b.textContent = '📷 Cámara QR';
+  camRunning = false;
+}
+function doScan() {
+  const v = document.getElementById('cam-video');
+  if (!v?.videoWidth) return;
+  const c = document.createElement('canvas');
+  c.width = v.videoWidth; c.height = v.videoHeight;
+  c.getContext('2d').drawImage(v, 0, 0);
+  const img = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+  const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+  if (code) { stopCamera(); addItemByCode(code.data); }
+}
+function filterItemsSearch() {
+  const q = document.getElementById('items-search').value.trim().toLowerCase();
+  const res = document.getElementById('items-search-results');
+  if (!q) { res.innerHTML = ''; return; }
+  const curr = state.config.currency || '€';
+  const found = state.refs.filter(r => r.code.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+  if (!found.length) {
+    // Allow adding as manual code
+    res.innerHTML = `<div class="ref-row">
+      <div style="flex:1;font-size:13px;color:var(--text2)">Código: <strong style="color:var(--text)">${q}</strong></div>
+      <button class="ref-add-btn" onclick="addItemByCode('${q}')">+</button>
+    </div>`;
+    return;
+  }
+  res.innerHTML = found.map(r => `
+    <div class="ref-row">
+      <div style="flex:1">
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--text3)">${r.code}${r.variant ? ' · ' + r.variant : ''}</div>
+        <div style="font-weight:700;font-size:14px">${r.name}</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">${curr}${parseFloat(r.price||0).toFixed(2)}</div>
+      </div>
+      <button class="ref-add-btn" onclick="addItemByCode('${r.code}')">+</button>
+    </div>
+  `).join('');
+}
+function addItemByCode(code) {
+  const ref = state.refs.find(r => r.code === code || r.name === code);
+  const item = ref
+    ? { ref: ref.code, name: ref.name, price: parseFloat(ref.price || 0), var1: ref.variant || '', obs: '' }
+    : { ref: code, name: code, price: 0, var1: '', obs: '' };
+  const ex = state.order.items.find(i => i.ref === item.ref && i.var1 === item.var1);
+  if (ex) { ex.qty++; } else { state.order.items.push({ ...item, qty: 1 }); }
+  document.getElementById('items-search').value = '';
+  document.getElementById('items-search-results').innerHTML = '';
+  renderItemsList();
+  toast('✓ ' + item.name + ' añadido');
+}
+function renderItemsList() {
+  const items = state.order.items;
+  const curr = state.config.currency || '€';
+  document.getElementById('items-empty').style.display = items.length ? 'none' : 'block';
+  document.getElementById('items-totals').style.display = items.length ? 'block' : 'none';
+  const list = document.getElementById('items-list');
+  list.innerHTML = items.map((it, i) => `
+    <div class="item-row">
+      <div class="item-info">
+        <div class="item-ref">${it.ref}${it.var1 ? ' · ' + it.var1 : ''}</div>
+        <div class="item-name">${it.name}</div>
+        <div class="item-price">${curr}${it.price.toFixed(2)} · Total: ${curr}${(it.price * it.qty).toFixed(2)}</div>
+        ${it.obs ? `<span class="obs-chip">📝 ${it.obs}</span>` : `<button onclick="openObs(${i})" style="background:none;border:1px solid var(--border);color:var(--text3);font-size:10px;padding:2px 8px;border-radius:20px;cursor:pointer;font-family:var(--font-cond);font-weight:600;margin-top:3px">+ obs</button>`}
+      </div>
+      <div class="qty-ctrl">
+        <button onclick="chQty(${i},-1)">−</button>
+        <span>${it.qty}</span>
+        <button onclick="chQty(${i},1)">+</button>
+      </div>
+      <button class="item-del" onclick="removeItem(${i})">×</button>
+    </div>
+  `).join('');
+  // Update sub
+  const units = items.reduce((a, i) => a + i.qty, 0);
+  document.getElementById('items-sub').textContent = `${items.length} productos · ${units} unidades`;
+  // Totals
+  const total = items.reduce((a, i) => a + i.price * i.qty, 0);
+  document.getElementById('t-lines').textContent = items.length;
+  document.getElementById('t-units').textContent = units;
+  document.getElementById('t-total').textContent = curr + total.toFixed(2);
+}
+function chQty(i, d) {
+  state.order.items[i].qty = Math.max(1, state.order.items[i].qty + d);
+  renderItemsList();
+}
+function removeItem(i) {
+  state.order.items.splice(i, 1);
+  renderItemsList();
+}
+
+// ══════════════════════════════════════════════
+// OBSERVATIONS
+// ══════════════════════════════════════════════
+function openObs(i) {
+  obsEditIdx = i;
+  const cur = state.order.items[i].obs || '';
+  document.getElementById('obs-text').value = cur;
+  const chips = document.getElementById('obs-chips');
+  chips.innerHTML = (state.config.obsPresets || []).map(p =>
+    `<div class="chip ${cur === p ? 'sel' : ''}" onclick="selChip(this,'${p}')">${p}</div>`
+  ).join('');
+  document.getElementById('obs-modal').classList.remove('hidden');
+}
+function selChip(el, v) {
+  document.querySelectorAll('#obs-chips .chip').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('obs-text').value = v;
+}
+function saveObs() {
+  if (obsEditIdx === null) return;
+  state.order.items[obsEditIdx].obs = document.getElementById('obs-text').value;
+  closeObsModal(); renderItemsList();
+}
+function closeObsModal() {
+  document.getElementById('obs-modal').classList.add('hidden');
+  obsEditIdx = null;
+}
+
+// ══════════════════════════════════════════════
+// STEP 3 – REVIEW
+// ══════════════════════════════════════════════
+function buildReview() {
+  const cl = getClient();
+  const items = state.order.items;
+  const curr = state.config.currency || '€';
+  const total = items.reduce((a, i) => a + i.price * i.qty, 0);
+  const notes = document.getElementById('f-notes')?.value || '';
+  let html = `
+    <div class="review-block">
+      <div class="review-block-title">Cliente</div>
+      ${cl.name ? `<div class="review-field"><span class="lbl">Nombre</span><span class="val">${cl.name}</span></div>` : ''}
+      ${cl.company ? `<div class="review-field"><span class="lbl">Empresa</span><span class="val">${cl.company}</span></div>` : ''}
+      ${cl.phone ? `<div class="review-field"><span class="lbl">Teléfono</span><span class="val">${cl.phone}</span></div>` : ''}
+      ${cl.email ? `<div class="review-field"><span class="lbl">Email</span><span class="val">${cl.email}</span></div>` : ''}
+      ${cl.attn ? `<div class="review-field"><span class="lbl">Atención a</span><span class="val">${cl.attn}</span></div>` : ''}
+      ${cl.address ? `<div class="review-field"><span class="lbl">Dirección</span><span class="val">${cl.address}</span></div>` : ''}
+    </div>
+    <div class="review-block">
+      <div class="review-block-title">${items.length} productos · ${items.reduce((a,i)=>a+i.qty,0)} unidades</div>
+      ${items.map(it => `
+        <div class="review-field">
+          <span class="lbl">${it.ref}${it.var1 ? ' · ' + it.var1 : ''}<br><small style="color:var(--text2)">${it.name}</small></span>
+          <span class="val" style="text-align:right">×${it.qty}<br><small style="color:var(--accent)">${curr}${(it.price*it.qty).toFixed(2)}</small></span>
+        </div>
+        ${it.obs ? `<div style="font-size:11px;color:var(--accent);margin-bottom:4px">📝 ${it.obs}</div>` : ''}
+      `).join('')}
+      <div class="review-field" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
+        <span class="lbl" style="font-size:14px">TOTAL</span>
+        <span style="font-family:var(--font-mono);font-size:20px;color:var(--accent);font-weight:700">${curr}${total.toFixed(2)}</span>
+      </div>
+    </div>
+    ${notes ? `<div class="review-block"><div class="review-block-title">Notas</div><div style="font-size:13px;color:var(--text2)">${notes}</div></div>` : ''}
+  `;
+  document.getElementById('review-content').innerHTML = html;
+}
+
+// ══════════════════════════════════════════════
+// CLOSE ORDER
+// ══════════════════════════════════════════════
+function closeOrder() {
+  const cl = getClient();
+  const order = {
+    id: state.order.id,
+    client: cl,
+    items: [...state.order.items],
+    notes: document.getElementById('f-notes')?.value || '',
+    closedAt: new Date().toISOString(),
+    total: state.order.items.reduce((a, i) => a + i.price * i.qty, 0)
+  };
+  state.history.unshift(order);
+  lastOrder = order;
+  saveLocal();
+  saveToCloud();
+  saveOrderToCloud(order);
+  document.getElementById('done-id').textContent = order.id;
+  currentStep = 4;
+  renderStep();
+  toast('✅ Pedido ' + order.id + ' guardado');
+}
+function newOrder() {
+  state.order = { id: '', client: {}, items: [], notes: '' };
+  newOrderId();
+  // Clear form
+  ['f-name','f-company','f-phone','f-email','f-attn','f-address','f-notes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  currentStep = 1;
+  renderStep();
+  document.getElementById('bottom-actions').style.display = 'flex';
+}
+function newOrderId() {
+  state.order.id = (state.config.prefix || 'PED-') + Date.now().toString().slice(-6);
+}
+
+// ══════════════════════════════════════════════
+// REFS / CATALOG
+// ══════════════════════════════════════════════
+function addRef() {
+  const code = document.getElementById('new-code').value.trim();
+  const name = document.getElementById('new-name').value.trim();
+  if (!code || !name) { toast('Código y nombre requeridos', true); return; }
+  const price = parseFloat(document.getElementById('new-price').value) || 0;
+  const variant = document.getElementById('new-variant').value.trim();
+  state.refs.push({ code, name, price, variant });
+  saveLocal(); saveToCloud(); renderCatalog();
+  ['new-code','new-name','new-price','new-variant'].forEach(id => document.getElementById(id).value = '');
+  toast('Referencia añadida');
+}
+function renderCatalog() {
+  const q = (document.getElementById('cat-search')?.value || '').toLowerCase();
+  const curr = state.config.currency || '€';
+  let refs = state.refs;
+  if (q) refs = refs.filter(r => r.code.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+  const list = document.getElementById('cat-list');
+  if (!list) return;
+  if (!refs.length) { list.innerHTML = `<div class="empty"><div class="empty-icon">📦</div><p>${q ? 'Sin resultados' : 'Catálogo vacío'}</p></div>`; return; }
+  list.innerHTML = refs.map((r, i) => `
+    <div class="ref-row">
+      <div style="flex:1">
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--text3)">${r.code}${r.variant ? ' · <span style="background:var(--bg3);border:1px solid var(--border);padding:1px 5px;border-radius:2px">' + r.variant + '</span>' : ''}</div>
+        <div style="font-weight:700;font-size:14px">${r.name}</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">${curr}${parseFloat(r.price||0).toFixed(2)}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteRef(${state.refs.indexOf(r)})">×</button>
+    </div>
+  `).join('');
+}
+function deleteRef(i) {
+  state.refs.splice(i, 1); saveLocal(); saveToCloud(); renderCatalog();
+}
+function clearRefs() {
+  if (!confirm('¿Eliminar todo el catálogo?')) return;
+  state.refs = []; saveLocal(); saveToCloud(); renderCatalog(); toast('Catálogo vacío');
+}
+function exportRefsCSV() {
+  if (!state.refs.length) { toast('Catálogo vacío', true); return; }
+  let csv = 'codigo,nombre,precio,variante\n';
+  state.refs.forEach(r => { csv += `"${r.code}","${r.name}",${r.price},"${r.variant||''}"\n`; });
+  dlText(csv, 'catalogo.csv', 'text/csv');
+  toast('CSV exportado');
+}
+function csvDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-z').classList.remove('over');
+  if (e.dataTransfer.files[0]) parseCSV(e.dataTransfer.files[0]);
+}
+function importCSV(e) { if (e.target.files[0]) parseCSV(e.target.files[0]); }
+function parseCSV(file) {
+  const r = new FileReader();
+  r.onload = e => {
+    const lines = e.target.result.split('\n').filter(l => l.trim());
+    let count = 0;
+    lines.forEach((line, i) => {
+      if (i === 0 && line.toLowerCase().includes('codigo')) return;
+      const cols = parseCSVLine(line);
+      if (cols.length >= 2) { state.refs.push({ code: cols[0]||'', name: cols[1]||'', price: parseFloat(cols[2])||0, variant: cols[3]||'' }); count++; }
+    });
+    saveLocal(); saveToCloud(); renderCatalog();
+    toast(`${count} refs importadas`);
+  };
+  r.readAsText(file);
+}
+function parseCSVLine(line) {
+  const res = []; let cur = ''; let inQ = false;
+  for (const c of line) {
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { res.push(cur.trim()); cur = ''; }
+    else { cur += c; }
+  }
+  res.push(cur.trim()); return res;
+}
+
+// ══════════════════════════════════════════════
+// QR GENERATOR
+// ══════════════════════════════════════════════
+let qrInst = null;
+function genQR() {
+  const val = document.getElementById('qr-gen-input').value.trim();
+  const wrap = document.getElementById('qr-gen-wrap');
+  const canvas = document.getElementById('qr-canvas');
+  if (!val) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  canvas.innerHTML = '';
+  try { qrInst = new QRCode(canvas, { text: val, width: 180, height: 180, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.M }); } catch(e) {}
+}
+function downloadQR() {
+  const c = document.querySelector('#qr-canvas canvas');
+  if (!c) return;
+  const a = document.createElement('a');
+  a.href = c.toDataURL('image/png');
+  a.download = (document.getElementById('qr-gen-input').value || 'qr') + '.png';
+  a.click();
+}
+function printQRLabel() {
+  const val = document.getElementById('qr-gen-input').value.trim();
+  if (!val) return;
+  buildPrint([{ ref: val, name: val, qty: 1 }], val);
+}
+
+// ══════════════════════════════════════════════
+// HISTORY
+// ══════════════════════════════════════════════
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  if (!list) return;
+  const curr = state.config.currency || '€';
+  if (!state.history.length) { list.innerHTML = `<div class="empty"><div class="empty-icon">🕐</div><p>Sin pedidos cerrados</p></div>`; return; }
+  list.innerHTML = state.history.map((o, i) => `
+    <div class="hist-card">
+      <div class="hist-hdr">
+        <div><div class="hist-id">${o.id}</div><div class="hist-date">${new Date(o.closedAt).toLocaleString('es-ES')}</div></div>
+        <div class="hist-total">${curr}${parseFloat(o.total||0).toFixed(2)}</div>
+      </div>
+      <div class="hist-client">${o.client?.name || o.client || 'Sin nombre'}${o.client?.company ? ' · ' + o.client.company : ''}</div>
+      <div class="hist-meta">${o.items.length} líneas · ${o.items.reduce((a,x)=>a+x.qty,0)} uds</div>
+      <div class="btn-row">
+        <button class="btn btn-sm" onclick="exportHistCSV(${i})">⬇ CSV</button>
+        <button class="btn btn-danger btn-sm" onclick="delHist(${i})">🗑</button>
+      </div>
+    </div>
+  `).join('');
+}
+function exportHistCSV(i) {
+  const o = state.history[i];
+  const curr = state.config.currency || '€';
+  let csv = `Pedido: ${o.id}\nCliente: ${o.client?.name || o.client || ''}\n\n`;
+  csv += 'Ref,Nombre,Variante,Precio,Qty,Total,Obs\n';
+  o.items.forEach(it => { csv += `"${it.ref}","${it.name}","${it.var1||''}",${it.price},${it.qty},${(it.price*it.qty).toFixed(2)},"${it.obs||''}"\n`; });
+  dlText(csv, o.id + '.csv', 'text/csv');
+  toast('CSV exportado');
+}
+function delHist(i) {
+  if (!confirm('¿Eliminar este pedido del historial?')) return;
+  state.history.splice(i, 1); saveLocal(); saveToCloud(); renderHistory();
+}
+function exportLastCSV() { if (lastOrder) { state.history[0] && exportHistCSV(0); } }
+function printLastLabels() { if (lastOrder) buildPrint(lastOrder.items, lastOrder.id); }
+
+// ══════════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════════
+function renderObsList() {
+  const list = document.getElementById('obs-list');
+  if (!list) return;
+  const presets = state.config.obsPresets || [];
+  list.innerHTML = presets.map((p, i) => `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <span style="flex:1;font-size:13px">${p}</span>
+      <button class="btn btn-danger btn-sm" onclick="rmObs(${i})">×</button>
+    </div>
+  `).join('');
+}
+function addObsPreset() {
+  const v = document.getElementById('new-obs').value.trim();
+  if (!v) return;
+  state.config.obsPresets.push(v);
+  document.getElementById('new-obs').value = '';
+  saveLocal(); saveToCloud(); renderObsList();
+}
+function rmObs(i) { state.config.obsPresets.splice(i, 1); saveLocal(); saveToCloud(); renderObsList(); }
+function exportBackup() { dlText(JSON.stringify(state, null, 2), 'qrpedidos-backup.json', 'application/json'); toast('Backup exportado'); }
+function importBackup(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = e => { try { state = { ...state, ...JSON.parse(e.target.result) }; saveLocal(); init(); toast('Backup importado'); } catch { toast('Error', true); } };
+  r.readAsText(f);
+}
+
+// ══════════════════════════════════════════════
+// PRINT
+// ══════════════════════════════════════════════
+function buildPrint(items, title) {
+  const area = document.getElementById('print-area');
+  area.innerHTML = `<h2 style="font-family:monospace;margin-bottom:8px">${title}</h2><div id="ls"></div>`;
+  const sheet = area.querySelector('#ls');
+  items.forEach(it => {
+    for (let i = 0; i < it.qty; i++) {
+      const lbl = document.createElement('div');
+      lbl.className = 'avery-label';
+      const qd = document.createElement('div');
+      try { new QRCode(qd, { text: it.ref, width: 60, height: 60, colorDark: '#000', colorLight: '#fff' }); } catch(e) {}
+      const info = document.createElement('div');
+      info.className = 'label-info';
+      info.innerHTML = `<div class="l-ref">${it.ref}</div><div class="l-name">${it.name}</div><div class="l-qty">×${it.qty}</div>`;
+      lbl.appendChild(qd); lbl.appendChild(info); sheet.appendChild(lbl);
+    }
+  });
+  window.print();
+}
+
+// ══════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════
+function toast(msg, isErr = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = isErr ? 'show error' : 'show';
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.className = '', 2800);
+}
+function dlText(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ══════════════════════════════════════════════
+// CLIENTES
+// ══════════════════════════════════════════════
+function searchClients() {
+  const q = document.getElementById('client-search').value.trim().toLowerCase();
+  const res = document.getElementById('client-results');
+  if (!q) { res.style.display = 'none'; return; }
+  const found = state.clients.filter(c =>
+    (c.name||'').toLowerCase().includes(q) ||
+    (c.company||'').toLowerCase().includes(q) ||
+    (c.email||'').toLowerCase().includes(q) ||
+    (c.nif||'').toLowerCase().includes(q)
+  );
+  if (!found.length) { res.style.display = 'none'; return; }
+  res.style.display = 'block';
+  res.innerHTML = found.map((c, i) => `
+    <div onclick="selectClient(${state.clients.indexOf(c)})" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .15s" onmouseover="this.style.background='rgba(245,196,0,.08)'" onmouseout="this.style.background='none'">
+      <div style="font-weight:700;font-size:14px">${c.name}</div>
+      <div style="font-size:12px;color:var(--text2)">${[c.company, c.country].filter(Boolean).join(' · ')}</div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text3)">${[c.phone, c.email].filter(Boolean).join(' · ')}</div>
+    </div>
+  `).join('');
+}
+function selectClient(idx) {
+  const c = state.clients[idx];
+  document.getElementById('f-name').value = c.name || '';
+  document.getElementById('f-company').value = c.company || '';
+  document.getElementById('f-nif').value = c.nif || '';
+  document.getElementById('f-country').value = c.country || '';
+  document.getElementById('f-phone').value = c.phone || '';
+  document.getElementById('f-email').value = c.email || '';
+  document.getElementById('f-attn').value = c.attn || '';
+  document.getElementById('f-address').value = c.address || '';
+  document.getElementById('client-search').value = c.name;
+  document.getElementById('client-results').style.display = 'none';
+  document.getElementById('client-form-label').textContent = '✓ Cliente seleccionado';
+  toast('✓ ' + c.name + ' cargado');
+}
+function saveClientToDB() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { toast('El nombre es obligatorio', true); return; }
+  const client = {
+    id: Date.now(),
+    name,
+    company: document.getElementById('f-company').value.trim(),
+    nif: document.getElementById('f-nif').value.trim(),
+    country: document.getElementById('f-country').value.trim(),
+    phone: document.getElementById('f-phone').value.trim(),
+    email: document.getElementById('f-email').value.trim(),
+    attn: document.getElementById('f-attn').value.trim(),
+    address: document.getElementById('f-address').value.trim()
+  };
+  // Actualizar si ya existe (mismo nombre + empresa)
+  const existIdx = state.clients.findIndex(c => c.name === name && c.company === client.company);
+  if (existIdx >= 0) { state.clients[existIdx] = client; toast('Cliente actualizado'); }
+  else { state.clients.push(client); toast('Cliente guardado en BD'); }
+  saveLocal(); saveToCloud();
+}
+function addClientManual() {
+  const name = document.getElementById('nc-name').value.trim();
+  if (!name) { toast('El nombre es obligatorio', true); return; }
+  const client = {
+    id: Date.now(),
+    name,
+    company: document.getElementById('nc-company').value.trim(),
+    nif: document.getElementById('nc-nif').value.trim(),
+    country: document.getElementById('nc-country').value.trim(),
+    phone: document.getElementById('nc-phone').value.trim(),
+    email: document.getElementById('nc-email').value.trim(),
+    attn: document.getElementById('nc-attn').value.trim(),
+    address: document.getElementById('nc-address').value.trim()
+  };
+  state.clients.push(client);
+  saveLocal(); saveToCloud(); renderClientsList();
+  ['nc-name','nc-company','nc-nif','nc-country','nc-phone','nc-email','nc-attn','nc-address'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  toast('Cliente añadido');
+}
+function renderClientsList() {
+  const list = document.getElementById('clients-list');
+  if (!list) return;
+  const q = (document.getElementById('clients-search')?.value || '').toLowerCase();
+  let clients = state.clients;
+  if (q) clients = clients.filter(c =>
+    (c.name||'').toLowerCase().includes(q) ||
+    (c.company||'').toLowerCase().includes(q) ||
+    (c.email||'').toLowerCase().includes(q)
+  );
+  if (!clients.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">👥</div><p>${q ? 'Sin resultados' : 'Sin clientes guardados'}</p></div>`;
+    return;
+  }
+  list.innerHTML = clients.map(c => `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div>
+          <div style="font-weight:700;font-size:15px">${c.name}</div>
+          ${c.company ? `<div style="font-size:12px;color:var(--text2)">${c.company}${c.country ? ' · ' + c.country : ''}</div>` : ''}
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="deleteClient(${state.clients.indexOf(c)})">×</button>
+      </div>
+      ${c.nif ? `<div style="font-family:var(--font-mono);font-size:10px;color:var(--text3)">NIF: ${c.nif}</div>` : ''}
+      ${c.phone ? `<div style="font-size:12px;color:var(--text2)">📞 ${c.phone}</div>` : ''}
+      ${c.email ? `<div style="font-size:12px;color:var(--text2)">✉ ${c.email}</div>` : ''}
+      ${c.attn ? `<div style="font-size:12px;color:var(--text2)">👤 ${c.attn}</div>` : ''}
+      ${c.address ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">📍 ${c.address}</div>` : ''}
+      <button onclick="useClientForOrder(${state.clients.indexOf(c)})" style="margin-top:8px;background:rgba(245,196,0,.1);border:1px solid var(--accent);color:var(--accent);font-family:var(--font-cond);font-weight:700;font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:5px 10px;border-radius:var(--radius);cursor:pointer;width:100%">
+        📋 Usar en nuevo pedido
+      </button>
+    </div>
+  `).join('');
+}
+function deleteClient(i) {
+  if (!confirm('¿Eliminar este cliente?')) return;
+  state.clients.splice(i, 1); saveLocal(); saveToCloud(); renderClientsList();
+}
+function useClientForOrder(idx) {
+  selectClient(idx);
+  switchMain('wizard');
+}
+function exportClientsCSV() {
+  if (!state.clients.length) { toast('Sin clientes', true); return; }
+  let csv = 'nombre,empresa,nif,pais,telefono,email,atencion,direccion\n';
+  state.clients.forEach(c => {
+    csv += `"${c.name||''}","${c.company||''}","${c.nif||''}","${c.country||''}","${c.phone||''}","${c.email||''}","${c.attn||''}","${c.address||''}"\n`;
+  });
+  dlText(csv, 'clientes.csv', 'text/csv');
+  toast('CSV exportado');
+}
+function importClientsCSV(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    const lines = ev.target.result.split('\n').filter(l => l.trim());
+    let count = 0;
+    lines.forEach((line, i) => {
+      if (i === 0 && line.toLowerCase().includes('nombre')) return;
+      const cols = parseCSVLine(line);
+      if (cols[0]) {
+        state.clients.push({ id: Date.now() + i, name: cols[0]||'', company: cols[1]||'', nif: cols[2]||'', country: cols[3]||'', phone: cols[4]||'', email: cols[5]||'', attn: cols[6]||'', address: cols[7]||'' });
+        count++;
+      }
+    });
+    saveLocal(); saveToCloud(); renderClientsList();
+    toast(`${count} clientes importados`);
+  };
+  r.readAsText(f);
+}
+function clearClients() {
+  if (!confirm('¿Eliminar todos los clientes?')) return;
+  state.clients = []; saveLocal(); saveToCloud(); renderClientsList(); toast('Clientes eliminados');
+}
+
+// ══════════════════════════════════════════════
+// START
+// ══════════════════════════════════════════════
+init();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
+
 :root {
   --bg: #0d0d0d;
   --bg2: #161616;
