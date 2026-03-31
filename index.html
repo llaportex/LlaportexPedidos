@@ -4,9 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>QR Pedidos PRO</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#f5c400">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="QR Pedidos">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --bg: #0d0d0d;
@@ -633,6 +641,8 @@ function init() {
 // ═══════════════════════════════════════════════
 function saveState() {
   try { localStorage.setItem('qrpro_state', JSON.stringify(state)); } catch(e) {}
+  // Sync a Supabase de forma asíncrona (sin bloquear)
+  saveToSupabase().catch(() => {});
 }
 function loadState() {
   try {
@@ -765,19 +775,16 @@ function processManual() {
 }
 function processScanned(data) {
   scannedData = data;
-  // Try to match in refs
   const ref = state.refs.find(r => r.code === data || r.name === data);
-  let html = `<div style="margin-bottom:8px"><span class="item-ref">${data}</span></div>`;
-  if (ref) {
-    html += `<div class="item-name">${ref.name}</div>`;
-    html += `<div class="item-price">${state.config.currency}${parseFloat(ref.price || 0).toFixed(2)}</div>`;
-    if (ref.variant) html += `<div style="margin-top:4px"><span class="variant-tag">${ref.variant}</span></div>`;
-  } else {
-    html += `<div style="color:var(--text3);font-size:12px">No encontrado en catálogo</div>`;
-  }
-  document.getElementById('scan-result-content').innerHTML = html;
-  document.getElementById('scan-result-card').style.display = 'block';
-  toast('QR detectado');
+  // Añadir directo al pedido y saltar a pestaña Pedido
+  addItemToOrder(ref ? {
+    ref: ref.code, name: ref.name,
+    price: parseFloat(ref.price || 0),
+    var1: ref.variant || ''
+  } : { ref: data, name: data, price: 0 });
+  toast('✓ ' + (ref ? ref.name : data) + ' añadido');
+  scannedData = null;
+  switchTab('order');
 }
 function addScannedToOrder() {
   if (!scannedData) return;
@@ -1166,31 +1173,71 @@ function removeObsPreset(i) {
 }
 
 // ═══════════════════════════════════════════════
-// BACKEND
+// SUPABASE SYNC
 // ═══════════════════════════════════════════════
-async function sendToBackend(order) {
-  const c = state.config;
-  if (c.backend === 'local' || !c.backendUrl) return;
-  try {
-    if (c.backend === 'sheets') {
-      await fetch(c.backendUrl, { method: 'POST', body: JSON.stringify(order), headers: { 'Content-Type': 'application/json' } });
-    } else if (c.backend === 'supabase') {
-      await fetch(c.backendUrl + '/rest/v1/pedidos', {
-        method: 'POST', body: JSON.stringify(order),
-        headers: { 'Content-Type': 'application/json', 'apikey': c.backendKey, 'Authorization': 'Bearer ' + c.backendKey }
-      });
-    } else if (c.backend === 'api') {
-      await fetch(c.backendUrl, { method: 'POST', body: JSON.stringify(order), headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + c.backendKey } });
-    }
-    toast('Enviado al backend');
-  } catch(e) { toast('Error al enviar al backend'); }
+async function supabaseInit() {
+  if (!supabase) return;
+  // Crear tablas si no existen vía RPC no disponible en anon, 
+  // usamos upsert directamente — la tabla debe existir.
+  // Cargar estado remoto
+  await loadFromSupabase();
+  // Suscribirse a cambios en tiempo real
+  syncChannel = supabase.channel('qr-sync')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'qr_state' }, payload => {
+      if (payload.new && payload.new.data) {
+        const remote = JSON.parse(payload.new.data);
+        state.refs = remote.refs || state.refs;
+        state.history = remote.history || state.history;
+        renderRefs(); renderHistory();
+        toast('🔄 Sincronizado');
+      }
+    }).subscribe();
 }
-async function testBackend() {
-  const c = state.config;
-  if (!c.backendUrl) { toast('Introduce URL primero'); return; }
+
+async function saveToSupabase() {
+  if (!supabase) return;
   try {
-    const res = await fetch(c.backendUrl, { method: 'GET' });
-    toast(res.ok ? '✓ Conexión OK' : 'Error HTTP: ' + res.status);
+    const data = JSON.stringify({ refs: state.refs, history: state.history, config: state.config });
+    await supabase.from('qr_state').upsert({ id: 1, data, updated_at: new Date().toISOString() });
+  } catch(e) { console.log('Supabase save error', e); }
+}
+
+async function loadFromSupabase() {
+  if (!supabase) return;
+  try {
+    const { data, error } = await supabase.from('qr_state').select('*').eq('id', 1).single();
+    if (data && data.data) {
+      const remote = JSON.parse(data.data);
+      if (remote.refs) state.refs = remote.refs;
+      if (remote.history) state.history = remote.history;
+      if (remote.config) state.config = { ...state.config, ...remote.config };
+      saveState();
+      toast('☁ Datos sincronizados');
+    }
+  } catch(e) { console.log('Supabase load error', e); }
+}
+
+async function sendToBackend(order) {
+  if (!supabase) return;
+  try {
+    await supabase.from('qr_pedidos').insert({
+      order_id: order.id,
+      client: order.client,
+      items: JSON.stringify(order.items),
+      notes: order.notes,
+      total: order.total,
+      closed_at: order.closedAt
+    });
+    await saveToSupabase();
+    toast('☁ Guardado en la nube');
+  } catch(e) { console.log('Supabase send error', e); }
+}
+
+async function testBackend() {
+  if (!supabase) { toast('Supabase no disponible'); return; }
+  try {
+    const { error } = await supabase.from('qr_state').select('id').limit(1);
+    toast(error ? '✗ Error: ' + error.message : '✓ Conexión Supabase OK');
   } catch(e) { toast('No se pudo conectar'); }
 }
 
@@ -1268,6 +1315,13 @@ function downloadText(content, filename, type) {
 
 // START
 init();
-</script>
+supabaseInit();
+
+// PWA Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}</script>
 </body>
 </html>
