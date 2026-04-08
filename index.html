@@ -50,7 +50,7 @@ html,body{height:100%;background:var(--bg)!important;color:var(--text)!important
 input,select,textarea,button{font-family:var(--font)}
 
 /* APP */
-#app{display:flex;flex-direction:column;height:100vh;max-width:480px;margin:0 auto;background:var(--bg)}
+#app{display:flex;flex-direction:column;height:100vh;max-width:960px;margin:0 auto;background:var(--bg)}
 #app-outer{background:var(--bg)!important;min-height:100vh}
 
 /* HEADER */
@@ -289,6 +289,34 @@ input,select,textarea,button{font-family:var(--font)}
 html { background: #f0f2f5 !important; }
 body { background: #f0f2f5 !important; color: #111827 !important; }
 #app { background: #f0f2f5 !important; }
+
+/* DESKTOP LAYOUT */
+@media (min-width: 600px) {
+  #app { max-width: 100% !important; }
+  #header { max-width: 100%; padding: 12px 32px; }
+  #nav { max-width: 100%; padding: 0 32px; }
+  .nav-btn { flex: none; padding: 10px 24px 9px; font-size: 11px; }
+  #screen { padding: 0; }
+  .screen { max-width: 900px; margin: 0 auto; padding: 24px 32px; }
+  #wizard-wrap { max-width: 900px; margin: 0 auto; width: 100%; }
+  .stepper { padding: 16px 32px 12px; }
+  .wizard-content { padding: 24px 32px; }
+  #wiz-footer { padding: 14px 32px; }
+  .card { border-radius: 12px; }
+  .field-row { grid-template-columns: 1fr 1fr 1fr; }
+  .order-card { border-radius: 10px; }
+}
+@media (min-width: 900px) {
+  #screen .screen { display: none; }
+  #screen .screen.active { 
+    display: grid !important; 
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  #screen #screen-home.active { display: block !important; }
+  #screen #screen-config.active { display: block !important; max-width: 600px; }
+}
 </style>
 </head>
 <body>
