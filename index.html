@@ -642,28 +642,22 @@ html, body { height: 100%; overflow: hidden; background: #d1d5db !important; }
         <div class="scan-ov"><div class="scan-box"></div><div class="scan-line"></div></div>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:10px">
-        <div>
+        <div style="flex:1">
           <div style="font-weight:600;font-size:14px">Modo REF</div>
-          <div style="font-size:12px;color:var(--text2)">Al escanear añade como referencia (precio €0)</div>
+          <div style="font-size:12px;color:var(--text2)">Total del pedido = €0 (solo referencias)</div>
         </div>
-        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
-          <input type="checkbox" id="modo-ref" style="opacity:0;width:0;height:0" onchange="updateModoRef()">
-          <span id="toggle-span" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:24px;transition:.3s">
-            <span style="position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.3s;display:block" id="toggle-knob"></span>
-          </span>
-        </label>
+        <button onclick="toggleModoRef()" id="btn-toggle-ref" style="width:52px;height:28px;background:#ccc;border:none;border-radius:28px;position:relative;cursor:pointer;transition:background .3s;flex-shrink:0">
+          <span id="knob-ref" style="width:22px;height:22px;background:#fff;border-radius:50%;position:absolute;top:3px;left:3px;transition:left .3s;display:block;box-shadow:0 1px 3px rgba(0,0,0,.3)"></span>
+        </button>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:10px" id="precio-toggle-wrap">
-        <div>
-          <div style="font-weight:600;font-size:14px">Incluir precios</div>
-          <div style="font-size:12px;color:var(--text2)">Mostrar precios en el pedido y PDF</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:10px">
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:14px">Incluir precios en PDF</div>
+          <div style="font-size:12px;color:var(--text2)">Mostrar precios unitarios en el PDF</div>
         </div>
-        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
-          <input type="checkbox" id="incluir-precios" checked style="opacity:0;width:0;height:0">
-          <span id="toggle-span2" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--primary);border-radius:24px;transition:.3s">
-            <span style="position:absolute;height:18px;width:18px;right:3px;bottom:3px;background:white;border-radius:50%;transition:.3s;display:block" id="toggle-knob2"></span>
-          </span>
-        </label>
+        <button onclick="toggleIncluirPrecios()" id="btn-toggle-precios" style="width:52px;height:28px;background:var(--primary);border:none;border-radius:28px;position:relative;cursor:pointer;transition:background .3s;flex-shrink:0">
+          <span id="knob-precios" style="width:22px;height:22px;background:#fff;border-radius:50%;position:absolute;top:3px;left:27px;transition:left .3s;display:block;box-shadow:0 1px 3px rgba(0,0,0,.3)"></span>
+        </button>
       </div>
       <button class="scan-btn" id="cam-btn" onclick="toggleCamera()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="17" width="4" height="4"/></svg>
@@ -854,6 +848,22 @@ function showScreen(name){
   if(name==='home'){renderHistory()}
 }
 function startNewOrder(){
+  // Siempre empezar con pedido limpio
+  state.order={id:'',client:{},brandId:'',agent:'',date:'',items:[],notes:''};
+  newOrderId();
+  // Reset form fields
+  ['f-agent','f-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  const fb=document.getElementById('f-brand');if(fb)fb.value='';
+  const bpv=document.getElementById('brand-selected-preview');if(bpv)bpv.style.display='none';
+  const csw=document.getElementById('client-search-wrap');if(csw)csw.style.display='block';
+  const csel=document.getElementById('client-selected-wrap');if(csel)csel.style.display='none';
+  const cs=document.getElementById('client-search');if(cs)cs.value='';
+  // Reset toggles
+  modoRef=false;incluirPrecios=true;
+  const btnr=document.getElementById('btn-toggle-ref');if(btnr)btnr.style.background='#ccc';
+  const knobr=document.getElementById('knob-ref');if(knobr)knobr.style.left='3px';
+  const btnp=document.getElementById('btn-toggle-precios');if(btnp)btnp.style.background='var(--primary)';
+  const knobp=document.getElementById('knob-precios');if(knobp)knobp.style.left='27px';
   document.getElementById('wizard-wrap').classList.add('active');
   document.getElementById('nav').style.display='none';
   document.getElementById('screen').style.display='none';
@@ -1178,6 +1188,8 @@ function closeOrder(){
     id:state.order.id,
     client:state.order.client,
     brandId:state.order.brandId,
+    modoRef:modoRef,
+    incluirPrecios:incluirPrecios,
     agent:document.getElementById('f-agent')?.value.trim()||state.order.agent||'',
     date:document.getElementById('f-date')?.value||state.order.date||new Date().toLocaleDateString('es-ES'),
     notes:document.getElementById('f-notes')?.value||state.order.notes||'',
@@ -1205,6 +1217,12 @@ function newOrder(){
   document.getElementById('client-search-wrap').style.display='block';
   document.getElementById('client-search').value='';
   document.getElementById('wiz-footer').style.display='flex';
+  // Resetear toggles
+  modoRef=false;incluirPrecios=true;
+  const btnr=document.getElementById('btn-toggle-ref');if(btnr)btnr.style.background='#ccc';
+  const knobr=document.getElementById('knob-ref');if(knobr)knobr.style.left='3px';
+  const btnp=document.getElementById('btn-toggle-precios');if(btnp)btnp.style.background='var(--primary)';
+  const knobp=document.getElementById('knob-precios');if(knobp)knobp.style.left='27px';
   currentStep=1;renderStep();renderHistory();
 }
 
@@ -1467,13 +1485,15 @@ function generateOrderPDF(order){
   const clientObj=state.clients.find(c=>c.name===cl.name);
   const clientLogo=clientObj?.logo||null;
   const date=order.date||new Date(order.closedAt||Date.now()).toLocaleDateString('es-ES');
-  const total=order.items.reduce((a,i)=>a+i.price*i.qty,0);
+  const showPrices=order.incluirPrecios!==false;
+  const esModoRef=order.modoRef||false;
+  const total=esModoRef?0:order.items.reduce((a,i)=>a+(i.isRef?0:i.price*i.qty),0);
   const rows=order.items.map(it=>`
     <tr>
       <td style="padding:8px 10px;border-bottom:1px solid #eee;font-size:12px">${it.ref}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #eee;font-size:12px;font-weight:600">${it.name}${it.var1?' · <span style="font-weight:400;color:#666">'+it.var1+'</span>':''}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #eee;font-size:12px;text-align:center">${it.qty}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #eee;font-size:12px;text-align:right">${curr}${it.price.toFixed(2)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #eee;font-size:12px;text-align:center">${it.qty}${it.isRef?' REF':' mt'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #eee;font-size:12px;text-align:right">${showPrices?(it.isRef||esModoRef?'REF':curr+it.price.toFixed(2)):'-'}</td>
       ${it.obs?`<td style="padding:8px 10px;border-bottom:1px solid #eee;font-size:11px;color:#888">${it.obs}</td>`:'<td style="border-bottom:1px solid #eee"></td>'}
     </tr>
   `).join('');
