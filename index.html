@@ -64,6 +64,7 @@ input,select,textarea,button{font-family:var(--font)}
 /* HEADER */
 #header{background:var(--surface);border-bottom:1px solid var(--border);padding:24px 32px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:var(--shadow);border-radius:0}
 .header-logo{height:80px;object-fit:contain;max-width:400px}
+@media(max-width:480px){.header-logo{height:50px;max-width:160px}}
 .header-right{display:flex;align-items:center;gap:10px}
 .sync-badge{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3)}
 .sync-dot{width:6px;height:6px;border-radius:50%;background:var(--text3)}
@@ -640,6 +641,30 @@ html, body { height: 100%; overflow: hidden; background: #d1d5db !important; }
         <video id="cam-video" playsinline autoplay muted></video>
         <div class="scan-ov"><div class="scan-box"></div><div class="scan-line"></div></div>
       </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:10px">
+        <div>
+          <div style="font-weight:600;font-size:14px">Modo REF</div>
+          <div style="font-size:12px;color:var(--text2)">Al escanear añade como referencia (precio €0)</div>
+        </div>
+        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
+          <input type="checkbox" id="modo-ref" style="opacity:0;width:0;height:0" onchange="updateModoRef()">
+          <span id="toggle-span" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:24px;transition:.3s">
+            <span style="position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.3s;display:block" id="toggle-knob"></span>
+          </span>
+        </label>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:10px" id="precio-toggle-wrap">
+        <div>
+          <div style="font-weight:600;font-size:14px">Incluir precios</div>
+          <div style="font-size:12px;color:var(--text2)">Mostrar precios en el pedido y PDF</div>
+        </div>
+        <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
+          <input type="checkbox" id="incluir-precios" checked style="opacity:0;width:0;height:0">
+          <span id="toggle-span2" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--primary);border-radius:24px;transition:.3s">
+            <span style="position:absolute;height:18px;width:18px;right:3px;bottom:3px;background:white;border-radius:50%;transition:.3s;display:block" id="toggle-knob2"></span>
+          </span>
+        </label>
+      </div>
       <button class="scan-btn" id="cam-btn" onclick="toggleCamera()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="17" width="4" height="4"/></svg>
         Escanear código QR
@@ -678,6 +703,7 @@ html, body { height: 100%; overflow: hidden; background: #d1d5db !important; }
         <div class="done-id" id="done-id">—</div>
         <div class="done-actions">
           <button class="btn btn-primary" onclick="generateOrderPDF(lastOrder)">📄 Descargar PDF</button>
+          <button class="btn btn-secondary" onclick="sendOrderByEmail(lastOrder)">📧 Enviar por email</button>
           <button class="btn btn-secondary" onclick="exportLastCSV()">⬇ Exportar CSV</button>
           <button class="btn btn-ghost" onclick="newOrder()">＋ Nuevo pedido</button>
         </div>
@@ -894,9 +920,16 @@ function renderStep(){
   if(currentStep===2)renderItemsList();
 }
 function newOrderId(){
-  state.order.id=(state.config.prefix||'PED-')+Date.now().toString().slice(-6);
+  // Numeración correlativa
+  if(!state.config.lastOrderNum)state.config.lastOrderNum=0;
+  state.config.lastOrderNum++;
+  const num=String(state.config.lastOrderNum).padStart(4,'0');
+  state.order.id=(state.config.prefix||'PED-')+num;
+  saveLocal();saveToCloud();
   const fi=document.getElementById('f-orderid');if(fi)fi.value=state.order.id;
   const fd=document.getElementById('f-date');if(fd)fd.value=new Date().toISOString().split('T')[0];
+  // Agente fijo
+  const fa=document.getElementById('f-agent');if(fa)fa.value='LLAMAS PORTELL TEXTIL S.L.';
 }
 function updateAgentsDL(){
   const dl=document.getElementById('agents-dl');
@@ -1052,7 +1085,7 @@ function renderItemsList(){
       <div class="item-info">
         <div class="item-code">${it.ref}${it.var1?' · '+it.var1:''}</div>
         <div class="item-name">${it.name}</div>
-        <div class="item-price-tag">${curr}${it.price.toFixed(2)}/m · ${it.obs?`<span style="color:var(--primary)">📝 ${it.obs}</span>`:`<span style="cursor:pointer;color:var(--text3)" onclick="openObs(${i})">+ observación</span>`}</div>
+        <div class="item-price-tag">${it.isRef?'REF · €0.00':curr+it.price.toFixed(2)+'/m'} · ${it.obs?`<span style="color:var(--primary)">📝 ${it.obs}</span>`:`<span style="cursor:pointer;color:var(--text3)" onclick="openObs(${i})">+ observación</span>`}</div>
       </div>
       <div class="qty-ctrl">
         <button class="qty-btn" onclick="chQty(${i},-1)">−</button>
@@ -1154,6 +1187,8 @@ function closeOrder(){
   };
   state.history.unshift(order);lastOrder=order;
   saveLocal();saveToCloud();saveOrderToCloud(order);
+  // Auto-enviar email si hay email de cliente
+  if(order.client?.email){setTimeout(()=>sendOrderByEmail(order),1500)}
   document.getElementById('done-id').textContent=order.id;
   document.getElementById('wiz-footer').style.display='none';
   currentStep=4;renderStep();
@@ -1203,6 +1238,7 @@ function renderHistory(){
       </div>
       <div class="btn-row" style="margin-top:10px">
         <button class="btn btn-secondary btn-xs" onclick="generateOrderPDF(state.history[${state.history.indexOf(o)}])">📄 PDF</button>
+        <button class="btn btn-secondary btn-xs" onclick="sendOrderByEmail(state.history[${state.history.indexOf(o)}])">📧 Email</button>
         <button class="btn btn-secondary btn-xs" onclick="exportHistCSV(${state.history.indexOf(o)})">⬇ CSV</button>
         <button class="btn btn-danger btn-xs" onclick="delHist(${state.history.indexOf(o)})">🗑</button>
       </div>
@@ -1356,11 +1392,35 @@ function renderCatalog(){
         <div class="list-item-sub">${r.code}${r.variant?' · '+r.variant:''}</div>
       </div>
       <div class="list-item-badge">${curr}${parseFloat(r.price||0).toFixed(2)}</div>
-      <button class="btn btn-danger btn-xs" onclick="deleteRef(${state.refs.indexOf(r)})">×</button>
+      <button class="btn btn-secondary btn-xs" onclick="editRef(${state.refs.indexOf(r)})" style="margin-right:4px">✏️</button><button class="btn btn-danger btn-xs" onclick="deleteRef(${state.refs.indexOf(r)})">×</button>
     </div>
   `).join('');
 }
 function deleteRef(i){state.refs.splice(i,1);saveLocal();saveToCloud();renderCatalog()}
+function editRef(i){
+  const r=state.refs[i];
+  document.getElementById('new-code').value=r.code;
+  document.getElementById('new-name').value=r.name;
+  document.getElementById('new-price').value=r.price;
+  document.getElementById('new-variant').value=r.variant||'';
+  document.getElementById('new-brand').value=r.brandId||'';
+  // Cambiar botón a "Actualizar"
+  const btn=document.querySelector('#screen-catalog .btn-primary');
+  if(btn){btn.textContent='✓ Actualizar referencia';btn.onclick=()=>updateRef(i)}
+  document.getElementById('new-code').scrollIntoView({behavior:'smooth'});
+}
+function updateRef(i){
+  const code=document.getElementById('new-code')?.value.trim();
+  const name=document.getElementById('new-name')?.value.trim();
+  if(!code||!name){toast('Código y nombre requeridos',null);return}
+  state.refs[i]={...state.refs[i],code,name,price:parseFloat(document.getElementById('new-price')?.value)||0,variant:document.getElementById('new-variant')?.value.trim()||'',brandId:document.getElementById('new-brand')?.value||''};
+  saveLocal();saveToCloud();renderCatalog();
+  // Resetear botón
+  const btn=document.querySelector('#screen-catalog .btn-primary');
+  if(btn){btn.textContent='＋ Añadir';btn.onclick=addRef}
+  ['new-code','new-name','new-price','new-variant'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  toast('Referencia actualizada','ok');
+}
 function clearRefs(){if(!confirm('¿Eliminar todo el catálogo?'))return;state.refs=[];saveLocal();saveToCloud();renderCatalog();toast('Catálogo vacío')}
 function exportRefsCSV(){if(!state.refs.length){toast('Catálogo vacío',null);return}let csv='codigo,nombre,precio,variante\n';state.refs.forEach(r=>{csv+=`"${r.code}","${r.name}",${r.price},"${r.variant||''}"
 `});dlText(csv,'catalogo.csv','text/csv');toast('CSV exportado')}
@@ -1593,6 +1653,70 @@ function confirmSingleRef(){
   document.getElementById('ai2-price').value='';
   document.getElementById('ref-img-in').value='';
   toast('✓ '+name+' añadido al catálogo','ok');
+}
+
+
+// ── IMPRIMIR QR CATÁLOGO ──
+function printAllQRs(){
+  const brandFilter=document.getElementById('print-brand-filter')?.value||'';
+  let refs=state.refs;
+  if(brandFilter)refs=refs.filter(r=>r.brandId==brandFilter);
+  if(!refs.length){toast('No hay referencias para imprimir',null);return}
+  const area=document.getElementById('print-area');
+  area.innerHTML=`<style>
+    body{font-family:Arial,sans-serif;background:#fff}
+    .qr-grid{display:flex;flex-wrap:wrap;gap:16px;padding:20px}
+    .qr-item{display:flex;flex-direction:column;align-items:center;width:120px;break-inside:avoid}
+    .qr-item .qr-box{background:#fff;padding:4px;border:1px solid #ddd;border-radius:4px}
+    .qr-item .qr-code{font-family:monospace;font-size:9px;color:#333;text-align:center;margin-top:4px;word-break:break-all}
+    .qr-item .qr-name{font-size:9px;color:#666;text-align:center;margin-top:2px;line-height:1.3}
+    @media print{body{margin:0}button{display:none}}
+  </style>
+  <div style="padding:16px 20px 8px;border-bottom:1px solid #eee;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+    <h2 style="font-size:16px;font-family:Arial">Catálogo QR · Llaportex · ${refs.length} referencias</h2>
+    <button onclick="window.print()" style="background:#1a56db;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">🖨 Imprimir</button>
+  </div>
+  <div class="qr-grid" id="qr-print-grid"></div>`;
+  const grid=area.querySelector('#qr-print-grid');
+  refs.forEach(r=>{
+    const item=document.createElement('div');
+    item.className='qr-item';
+    const box=document.createElement('div');box.className='qr-box';
+    try{new QRCode(box,{text:r.code,width:100,height:100,colorDark:'#000',colorLight:'#fff'})}catch(e){}
+    const code=document.createElement('div');code.className='qr-code';code.textContent=r.code;
+    const name=document.createElement('div');name.className='qr-name';name.textContent=r.name.substring(0,40);
+    item.appendChild(box);item.appendChild(code);item.appendChild(name);
+    grid.appendChild(item);
+  });
+  // Mostrar en nueva ventana
+  const w=window.open('','_blank');
+  w.document.write(area.innerHTML);
+  w.document.close();
+}
+function populatePrintBrandFilter(){
+  const sel=document.getElementById('print-brand-filter');if(!sel)return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— Todas las marcas —</option>';
+  state.brands.forEach(b=>{sel.innerHTML+=`<option value="${b.id}">${b.name}</option>`});
+  sel.value=cur;
+}
+
+// ── ENVÍO EMAIL ──
+async function sendOrderByEmail(order){
+  const clientEmail=order.client?.email||'';
+  const myEmail='llamas@llaportex.com';
+  if(!clientEmail&&!myEmail)return;
+  // Generar CSV del pedido
+  const curr=state.config.currency||'€';
+  let csv=`Pedido: ${order.id}\nCliente: ${order.client?.name||''}\nFecha: ${order.date||''}\n\nRef,Nombre,Qty,Precio,Total\n`;
+  order.items.forEach(it=>{csv+=`${it.ref},${it.name},${it.qty},${it.isRef?0:it.price},${it.isRef?0:(it.price*it.qty).toFixed(2)}\n`});
+  csv+=`\nTOTAL,,,, ${curr}${order.total.toFixed(2)}`;
+  // Usar mailto como fallback (abre cliente de email)
+  const subject=encodeURIComponent(`Pedido ${order.id} - Llaportex`);
+  const body=encodeURIComponent(`Estimado/a ${order.client?.name||'cliente'},\n\nAdjuntamos el resumen de su pedido ${order.id}.\n\n${csv}\n\nSaludos,\nLlamas Portell Textil S.L.\nllamas@llaportex.com\nwww.llaportex.com`);
+  const emails=[myEmail,clientEmail].filter(Boolean).join(',');
+  window.open(`mailto:${emails}?subject=${subject}&body=${body}`);
+  toast('📧 Abriendo cliente de email...','ok');
 }
 
 function dlText(content,filename,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url)}
