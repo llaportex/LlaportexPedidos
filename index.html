@@ -1275,8 +1275,7 @@ function importClientsXLSX(file){
 function importClientsCSV(file){
   const r=new FileReader();
   r.onload=e=>{
-    const lines=e.target.result.split('
-').filter(l=>l.trim());let count=0;
+    const lines=e.target.result.split('\n').filter(l=>l.trim());let count=0;
     lines.forEach((line,i)=>{
       if(i===0&&line.toLowerCase().includes('nombre'))return;
       const cols=parseCSVLine(line);
@@ -1350,8 +1349,7 @@ function exportRefsCSV(){if(!state.refs.length){toast('Catálogo vacío',null);r
 `});dlText(csv,'catalogo.csv','text/csv');toast('CSV exportado')}
 function csvDrop(e){e.preventDefault();document.getElementById('drop-z').classList.remove('over');if(e.dataTransfer.files[0])parseCSV(e.dataTransfer.files[0])}
 function importCSV(e){if(e.target.files[0])parseCSV(e.target.files[0])}
-function parseCSV(file){const r=new FileReader();r.onload=e=>{const lines=e.target.result.split('
-').filter(l=>l.trim());let count=0;lines.forEach((line,i)=>{if(i===0&&line.toLowerCase().includes('codigo'))return;const cols=parseCSVLine(line);if(cols.length>=2){state.refs.push({code:cols[0]||'',name:cols[1]||'',price:parseFloat(cols[2])||0,variant:cols[3]||''});count++}});saveLocal();saveToCloud();renderCatalog();toast(count+' refs importadas','ok')};r.readAsText(file)}
+function parseCSV(file){const r=new FileReader();r.onload=e=>{const lines=e.target.result.split('\n').filter(l=>l.trim());let count=0;lines.forEach((line,i)=>{if(i===0&&line.toLowerCase().includes('codigo'))return;const cols=parseCSVLine(line);if(cols.length>=2){state.refs.push({code:cols[0]||'',name:cols[1]||'',price:parseFloat(cols[2])||0,variant:cols[3]||''});count++}});saveLocal();saveToCloud();renderCatalog();toast(count+' refs importadas','ok')};r.readAsText(file)}
 function parseCSVLine(line){const res=[];let cur='';let inQ=false;for(const c of line){if(c==='"'){inQ=!inQ}else if(c===','&&!inQ){res.push(cur.trim());cur=''}else{cur+=c}}res.push(cur.trim());return res}
 
 // ── QR ──
