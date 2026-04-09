@@ -494,6 +494,24 @@ html, body { height: 100%; overflow: hidden; background: #d1d5db !important; }
       <input type="file" id="price-img-in" accept="image/*" style="display:none" onchange="extractPriceList(event)">
       <div id="ai-status" style="display:none;font-size:13px;color:var(--primary);padding:8px;background:var(--primary-light);border-radius:var(--r-sm)"></div>
     </div>
+  <div class="card">
+    <div class="card-label">📷 Foto de artículo individual</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Haz una foto a una referencia/etiqueta y la IA detectará el código y nombre automáticamente</p>
+    <div class="field"><label>Marca asociada</label><select id="ai2-brand-sel"><option value="">— Selecciona marca —</option></select></div>
+    <div class="field"><label>Precio €/m (opcional)</label><input type="number" id="ai2-price" placeholder="0.00" step="0.01"></div>
+    <button class="btn btn-secondary" onclick="document.getElementById('ref-img-in').click()" style="width:100%;margin-bottom:8px">📷 Hacer/subir foto del artículo</button>
+    <input type="file" id="ref-img-in" accept="image/*" style="display:none" onchange="extractSingleRef(event)">
+    <div id="ai2-preview" style="display:none;margin-bottom:10px;text-align:center">
+      <img id="ai2-img" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border)">
+    </div>
+    <div id="ai2-status" style="display:none;font-size:13px;color:var(--primary);padding:8px;background:var(--primary-light);border-radius:var(--r-sm);margin-bottom:8px"></div>
+    <div id="ai2-result" style="display:none">
+      <div class="field"><label>Código detectado</label><input type="text" id="ai2-code"></div>
+      <div class="field"><label>Nombre detectado</label><input type="text" id="ai2-name"></div>
+      <div class="field"><label>Composición / Variante</label><input type="text" id="ai2-variant"></div>
+      <button class="btn btn-primary" onclick="confirmSingleRef()" style="font-size:13px;padding:10px">✓ Confirmar y añadir al catálogo</button>
+    </div>
+  </div>
     <div class="card">
       <div class="card-label">Generar QR</div>
       <div class="field"><input type="text" id="qr-input" placeholder="Código ref..." oninput="genQR()"></div>
@@ -943,7 +961,7 @@ function saveClientToDB(){
   }
 }
 function populateBrandSelects(){
-  ['f-brand','new-brand','ai-brand-sel'].forEach(id=>{
+  ['f-brand','new-brand','ai-brand-sel','ai2-brand-sel'].forEach(id=>{
     const sel=document.getElementById(id);if(!sel)return;
     const cur=sel.value;
     const empty=id==='new-brand'?'— Sin marca —':'— Selecciona empresa —';
@@ -1505,6 +1523,78 @@ function previewLogo(inputId,previewId,dataId){
     if(dataId)document.getElementById(dataId).value=e.target.result;
   };r.readAsDataURL(file);
 }
+
+// ── FOTO ARTÍCULO INDIVIDUAL ──
+async function extractSingleRef(e){
+  const file=e.target.files[0];if(!file)return;
+  const status=document.getElementById('ai2-status');
+  const preview=document.getElementById('ai2-preview');
+  const img=document.getElementById('ai2-img');
+  const result=document.getElementById('ai2-result');
+  // Mostrar preview
+  const previewUrl=URL.createObjectURL(file);
+  img.src=previewUrl;
+  preview.style.display='block';
+  status.style.display='block';
+  status.textContent='⏳ Analizando artículo con IA...';
+  result.style.display='none';
+  const r=new FileReader();
+  r.onload=async ev=>{
+    try{
+      const b64=ev.target.result.split(',')[1];
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          model:'claude-sonnet-4-20250514',
+          max_tokens:500,
+          messages:[{role:'user',content:[
+            {type:'image',source:{type:'base64',media_type:file.type,data:b64}},
+            {type:'text',text:'Analiza esta imagen de un artículo/tejido/referencia textil. Extrae: código de referencia, nombre del artículo, y composición/material si aparece. Responde SOLO con JSON: {"codigo":"","nombre":"","composicion":""}. Sin texto extra.'}
+          ]}]
+        })
+      });
+      const data=await res.json();
+      const text=data.content?.[0]?.text||'{}';
+      const clean=text.replace(/```json|```/g,'').trim();
+      const p=JSON.parse(clean);
+      document.getElementById('ai2-code').value=p.codigo||'';
+      document.getElementById('ai2-name').value=p.nombre||'';
+      document.getElementById('ai2-variant').value=p.composicion||'';
+      status.textContent='✅ Artículo detectado - revisa y confirma';
+      result.style.display='block';
+    }catch(err){
+      status.textContent='❌ Error: '+err.message;
+      // Mostrar campos vacíos para rellenar manual
+      document.getElementById('ai2-code').value='';
+      document.getElementById('ai2-name').value='';
+      document.getElementById('ai2-variant').value='';
+      result.style.display='block';
+    }
+  };
+  r.readAsDataURL(file);
+}
+function confirmSingleRef(){
+  const code=document.getElementById('ai2-code').value.trim();
+  const name=document.getElementById('ai2-name').value.trim();
+  if(!code||!name){toast('Código y nombre requeridos',null);return}
+  const price=parseFloat(document.getElementById('ai2-price').value)||0;
+  const variant=document.getElementById('ai2-variant').value.trim();
+  const brandId=document.getElementById('ai2-brand-sel').value||'';
+  state.refs.push({code,name,price,variant,brandId});
+  saveLocal();saveToCloud();renderCatalog();
+  // Generar QR automáticamente
+  document.getElementById('qr-input').value=code;
+  genQR();
+  // Reset
+  document.getElementById('ai2-status').style.display='none';
+  document.getElementById('ai2-preview').style.display='none';
+  document.getElementById('ai2-result').style.display='none';
+  document.getElementById('ai2-price').value='';
+  document.getElementById('ref-img-in').value='';
+  toast('✓ '+name+' añadido al catálogo','ok');
+}
+
 function dlText(content,filename,type){const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url)}
 function toast(msg,type){
   const t=document.getElementById('toast');t.textContent=msg;
