@@ -1344,8 +1344,7 @@ function renderCatalog(){
 }
 function deleteRef(i){state.refs.splice(i,1);saveLocal();saveToCloud();renderCatalog()}
 function clearRefs(){if(!confirm('¿Eliminar todo el catálogo?'))return;state.refs=[];saveLocal();saveToCloud();renderCatalog();toast('Catálogo vacío')}
-function exportRefsCSV(){if(!state.refs.length){toast('Catálogo vacío',null);return}let csv='codigo,nombre,precio,variante
-';state.refs.forEach(r=>{csv+=`"${r.code}","${r.name}",${r.price},"${r.variant||''}"
+function exportRefsCSV(){if(!state.refs.length){toast('Catálogo vacío',null);return}let csv='codigo,nombre,precio,variante\n';state.refs.forEach(r=>{csv+=`"${r.code}","${r.name}",${r.price},"${r.variant||''}"
 `});dlText(csv,'catalogo.csv','text/csv');toast('CSV exportado')}
 function csvDrop(e){e.preventDefault();document.getElementById('drop-z').classList.remove('over');if(e.dataTransfer.files[0])parseCSV(e.dataTransfer.files[0])}
 function importCSV(e){if(e.target.files[0])parseCSV(e.target.files[0])}
@@ -1443,8 +1442,7 @@ tbody tr:nth-child(even){background:#fafafa}
       <div class="cb-label">Datos cliente:</div>
       <strong>${cl.company||cl.name||''}</strong>
       <p>
-        ${cl.address?cl.address.replace(/
-/g,'<br>')+'<br>':''}
+        ${cl.address?cl.address.replace(/\n/g,'<br>')+'<br>':''}
         ${cl.nif?'VAT: '+cl.nif+'<br>':''}
         ${cl.attn?cl.attn+'<br>':''}
         ${[cl.email,cl.phone].filter(Boolean).join(' · ')}
