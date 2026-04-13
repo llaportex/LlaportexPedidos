@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -733,7 +732,21 @@ function renderAll(){
 // STORAGE
 // ═══════════════════════════════════════
 function saveLocal(){try{localStorage.setItem('llap9',JSON.stringify(ST))}catch(e){}}
-function loadLocal(){try{const s=localStorage.getItem('llap9');if(s){const p=JSON.parse(s);ST={...ST,...p}}}catch(e){}}
+function loadLocal(){
+  try{
+    // Intentar cargar v9
+    const s9=localStorage.getItem('llap9');
+    if(s9){const p=JSON.parse(s9);ST={...ST,...p};return}
+    // Migrar desde v8 si existe
+    const s8=localStorage.getItem('llap8');
+    if(s8){
+      const p=JSON.parse(s8);
+      ST={...ST,...p};
+      saveLocal(); // guardar en llap9
+      toast('✅ Datos migrados correctamente','ok');
+    }
+  }catch(e){}
+}
 function saveConfig(){
   ST.config.currency=document.getElementById('cfg-cur').value;
   ST.config.prefix=document.getElementById('cfg-prefix').value||'PED-';
