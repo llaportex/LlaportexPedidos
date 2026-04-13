@@ -778,20 +778,32 @@ async function supaInit(){
   }).subscribe();
 }
 async function loadCloud(){
-  if(!supa)return;
+  if(!supa){renderAll();return;}
   try{
-    const{data}=await supa.from('qr_state').select('*').eq('id',1).single();
+    // Intentar cargar el registro principal
+    const{data,error}=await supa.from('qr_state').select('*').eq('id',1).single();
+    if(error){
+      console.error('Supabase error:',error);
+      toast('Error Supabase: '+error.message,'err');
+      renderAll();return;
+    }
     if(data?.data){
       const r=JSON.parse(data.data);
-      if(r.refs)ST.refs=r.refs;
-      if(r.history)ST.history=r.history;
-      if(r.clients)ST.clients=r.clients;
-      if(r.brands)ST.brands=r.brands;
+      if(r.refs&&r.refs.length)ST.refs=r.refs;
+      if(r.history&&r.history.length)ST.history=r.history;
+      if(r.clients&&r.clients.length)ST.clients=r.clients;
+      if(r.brands&&r.brands.length)ST.brands=r.brands;
       if(r.config)ST.config={...ST.config,...r.config};
-      saveLocal();renderAll();applyConfig();
-      toast('☁ Datos cargados','ok');
+      saveLocal();
+      toast('☁ '+ST.clients.length+' clientes, '+ST.brands.length+' marcas, '+ST.refs.length+' refs','ok');
+    } else {
+      toast('Sin datos en la nube','err');
     }
-  }catch(e){}
+  }catch(e){
+    console.error('loadCloud error:',e);
+    toast('Error conexión: '+e.message,'err');
+  }
+  renderAll();applyConfig();populateSelects();
 }
 async function cloud_save(){
   if(!supa)return;
