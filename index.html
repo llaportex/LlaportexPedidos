@@ -1016,44 +1016,71 @@ function onBrandChange(){
 async function toggleCam(){
   if(camStream){stopCam();return}
   try{
-    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}},audio:false});
+    const constraints={
+      video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},
+      audio:false
+    };
+    camStream=await navigator.mediaDevices.getUserMedia(constraints);
     const v=document.getElementById('cam-video');
     v.srcObject=camStream;
     v.setAttribute('playsinline','true');
-    await v.play().catch(()=>{});
+    v.setAttribute('autoplay','true');
+    v.muted=true;
     document.getElementById('cam-wrap').style.display='block';
     document.getElementById('cam-btn').innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Parar cámara';
-    requestAnimationFrame(doScan);
-  }catch(e){toast('No se puede acceder a la cámara','err')}
+    // Esperar a que el video tenga frames antes de escanear
+    _scanActive=true;
+    v.onloadedmetadata=()=>{
+      v.play().then(()=>{
+        requestAnimationFrame(doScan);
+      }).catch(()=>{requestAnimationFrame(doScan)});
+    };
+    // Fallback por si onloadedmetadata ya disparó
+    if(v.readyState>=1){
+      v.play().catch(()=>{});
+      requestAnimationFrame(doScan);
+    }
+  }catch(e){
+    camStream=null;
+    toast('No se puede acceder a la cámara: '+e.message,'err');
+  }
 }
 function stopCam(){
+  _scanActive=false;
   if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}
   _scanCanvas=null;_scanCtx=null;
+  const v=document.getElementById('cam-video');if(v){v.srcObject=null;v.onloadedmetadata=null}
   const w=document.getElementById('cam-wrap');if(w)w.style.display='none';
   const b=document.getElementById('cam-btn');
   if(b)b.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="17" width="4" height="4"/></svg> Escanear código QR';
 }
-let _scanCanvas=null;let _scanCtx=null;
+// ── QR SCANNER ROBUSTO ──
+let _scanCanvas=null;let _scanCtx=null;let _scanActive=false;let _scanTimer=null;
+
 function doScan(){
-  if(!camStream)return;
+  if(!_scanActive||!camStream)return;
   const v=document.getElementById('cam-video');
-  if(v&&v.videoWidth>0&&v.readyState>=2){
-    // Reusar canvas para mejor rendimiento
-    if(!_scanCanvas||_scanCanvas.width!==v.videoWidth){
+  if(!v||v.paused||v.ended){requestAnimationFrame(doScan);return}
+  
+  const W=v.videoWidth, H=v.videoHeight;
+  if(!W||!H){requestAnimationFrame(doScan);return}
+  
+  try{
+    if(!_scanCanvas||_scanCanvas.width!==W||_scanCanvas.height!==H){
       _scanCanvas=document.createElement('canvas');
-      _scanCanvas.width=v.videoWidth;_scanCanvas.height=v.videoHeight;
-      _scanCtx=_scanCanvas.getContext('2d');
+      _scanCanvas.width=W; _scanCanvas.height=H;
+      _scanCtx=_scanCanvas.getContext('2d',{willReadFrequently:true});
     }
-    _scanCtx.drawImage(v,0,0);
-    const img=_scanCtx.getImageData(0,0,_scanCanvas.width,_scanCanvas.height);
-    // attemptBoth: intenta normal e invertido - máxima compatibilidad con papel
+    _scanCtx.drawImage(v,0,0,W,H);
+    const img=_scanCtx.getImageData(0,0,W,H);
     const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'attemptBoth'});
-    if(code&&code.data){
+    if(code&&code.data&&code.data.trim()){
+      _scanActive=false;
       stopCam();
-      addItemByCode(code.data);
+      addItemByCode(code.data.trim());
       return;
     }
-  }
+  }catch(err){}
   requestAnimationFrame(doScan);
 }
 function searchItems(){
