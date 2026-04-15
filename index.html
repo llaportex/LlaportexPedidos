@@ -1016,8 +1016,11 @@ function onBrandChange(){
 async function toggleCam(){
   if(camStream){stopCam();return}
   try{
-    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
-    const v=document.getElementById('cam-video');v.srcObject=camStream;
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}},audio:false});
+    const v=document.getElementById('cam-video');
+    v.srcObject=camStream;
+    v.setAttribute('playsinline','true');
+    await v.play().catch(()=>{});
     document.getElementById('cam-wrap').style.display='block';
     document.getElementById('cam-btn').innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Parar cámara';
     requestAnimationFrame(doScan);
@@ -1025,19 +1028,31 @@ async function toggleCam(){
 }
 function stopCam(){
   if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}
+  _scanCanvas=null;_scanCtx=null;
   const w=document.getElementById('cam-wrap');if(w)w.style.display='none';
   const b=document.getElementById('cam-btn');
   if(b)b.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="17" width="4" height="4"/></svg> Escanear código QR';
 }
+let _scanCanvas=null;let _scanCtx=null;
 function doScan(){
   if(!camStream)return;
   const v=document.getElementById('cam-video');
-  if(v?.videoWidth){
-    const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;
-    c.getContext('2d').drawImage(v,0,0);
-    const img=c.getContext('2d').getImageData(0,0,c.width,c.height);
-    const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
-    if(code){stopCam();addItemByCode(code.data);return}
+  if(v&&v.videoWidth>0&&v.readyState>=2){
+    // Reusar canvas para mejor rendimiento
+    if(!_scanCanvas||_scanCanvas.width!==v.videoWidth){
+      _scanCanvas=document.createElement('canvas');
+      _scanCanvas.width=v.videoWidth;_scanCanvas.height=v.videoHeight;
+      _scanCtx=_scanCanvas.getContext('2d');
+    }
+    _scanCtx.drawImage(v,0,0);
+    const img=_scanCtx.getImageData(0,0,_scanCanvas.width,_scanCanvas.height);
+    // attemptBoth: intenta normal e invertido - máxima compatibilidad con papel
+    const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'attemptBoth'});
+    if(code&&code.data){
+      stopCam();
+      addItemByCode(code.data);
+      return;
+    }
   }
   requestAnimationFrame(doScan);
 }
