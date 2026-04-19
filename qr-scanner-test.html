@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Test QR Scanner</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<style>
+body{font-family:sans-serif;padding:20px;background:#f0f0f0}
+video{width:100%;max-width:400px;display:block;background:#000;border-radius:8px}
+#log{background:#000;color:#0f0;padding:12px;border-radius:8px;font-family:monospace;font-size:11px;height:200px;overflow-y:auto;margin-top:10px}
+button{padding:12px 20px;font-size:16px;background:#1a56db;color:#fff;border:none;border-radius:8px;width:100%;margin:6px 0}
+#result{padding:12px;background:#ecfdf5;border-radius:8px;font-size:18px;font-weight:bold;text-align:center;display:none}
+</style>
+</head>
+<body>
+<h2>🔍 Test QR Scanner</h2>
+<button id="btn" onclick="startScan()">▶ Iniciar cámara</button>
+<video id="vid" playsinline muted autoplay></video>
+<div id="result">✅ QR Detectado: <span id="qr-val"></span></div>
+<div id="log">Log de diagnóstico...
+</div>
+
+<script>
+let stream = null;
+let active = false;
+let canvas = null;
+let ctx = null;
+let frameCount = 0;
+
+function log(msg) {
+  const el = document.getElementById('log');
+  el.textContent += new Date().toISOString().substr(11,8) + ' ' + msg + '
+';
+  el.scrollTop = el.scrollHeight;
+}
+
+async function startScan() {
+  if(stream) { stopScan(); return; }
+  log('Iniciando getUserMedia...');
+  
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: {ideal:'environment'}, width:{ideal:1280}, height:{ideal:720} },
+      audio: false
+    });
+    
+    log('Stream OK. Tracks: ' + stream.getVideoTracks().length);
+    const track = stream.getVideoTracks()[0];
+    const settings = track.getSettings();
+    log('Cámara: ' + settings.width + 'x' + settings.height);
+    
+    const vid = document.getElementById('vid');
+    vid.srcObject = stream;
+    vid.muted = true;
+    
+    active = true;
+    document.getElementById('btn').textContent = '⏹ Parar';
+    
+    vid.onloadedmetadata = () => {
+      log('onloadedmetadata: ' + vid.videoWidth + 'x' + vid.videoHeight);
+      vid.play().then(() => {
+        log('play() OK, readyState=' + vid.readyState);
+        requestAnimationFrame(scan);
+      }).catch(e => {
+        log('play() ERROR: ' + e.message);
+        requestAnimationFrame(scan); // intentar de todos modos
+      });
+    };
+    
+    // Fallback
+    setTimeout(() => {
+      if(active && vid.videoWidth > 0) {
+        log('Fallback timeout: videoWidth=' + vid.videoWidth);
+        requestAnimationFrame(scan);
+      } else if(active) {
+        log('Fallback: videoWidth=0 tras 1s, intentando igualmente');
+        requestAnimationFrame(scan);
+      }
+    }, 1000);
+    
+  } catch(e) {
+    log('ERROR getUserMedia: ' + e.name + ' - ' + e.message);
+  }
+}
+
+function scan() {
+  if(!active || !stream) return;
+  
+  const vid = document.getElementById('vid');
+  frameCount++;
+  
+  if(frameCount % 30 === 0) {
+    log('Frame ' + frameCount + ': ' + vid.videoWidth + 'x' + vid.videoHeight + 
+        ' readyState=' + vid.readyState + ' paused=' + vid.paused);
+  }
+  
+  const W = vid.videoWidth, H = vid.videoHeight;
+  if(!W || !H) { requestAnimationFrame(scan); return; }
+  
+  if(!canvas || canvas.width !== W) {
+    canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    ctx = canvas.getContext('2d', {willReadFrequently: true});
+    log('Canvas creado: ' + W + 'x' + H);
+  }
+  
+  ctx.drawImage(vid, 0, 0, W, H);
+  const img = ctx.getImageData(0, 0, W, H);
+  
+  const code = jsQR(img.data, img.width, img.height, {inversionAttempts: 'attemptBoth'});
+  
+  if(code && code.data) {
+    log('✅ QR DETECTADO: ' + code.data);
+    active = false;
+    stopScan();
+    document.getElementById('qr-val').textContent = code.data;
+    document.getElementById('result').style.display = 'block';
+    return;
+  }
+  
+  requestAnimationFrame(scan);
+}
+
+function stopScan() {
+  active = false;
+  if(stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  const vid = document.getElementById('vid');
+  vid.srcObject = null;
+  document.getElementById('btn').textContent = '▶ Iniciar cámara';
+  log('Cámara parada. Total frames: ' + frameCount);
+  frameCount = 0;
+}
+</script>
+</body>
+</html>
