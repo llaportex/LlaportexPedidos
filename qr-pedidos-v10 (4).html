@@ -1013,29 +1013,33 @@ function onBrandChange(){
 // ═══════════════════════════════════════
 // STEP 2: ITEMS
 // ═══════════════════════════════════════
-async function toggleCam(){
+function toggleCam(){
   if(camStream){stopCam();return}
-  try{
-    camStream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},
-      audio:false
-    });
-    const v=document.getElementById('cam-video');
-    v.srcObject=camStream;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    toast('Cámara no soportada en este navegador','err');return;
+  }
+  _sactive=true;_sc=null;_sctx=null;
+  navigator.mediaDevices.getUserMedia({
+    video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},
+    audio:false
+  }).then(function(stream){
+    camStream=stream;
+    var v=document.getElementById('cam-video');
+    v.srcObject=stream;
     v.muted=true;
     document.getElementById('cam-wrap').style.display='block';
     document.getElementById('cam-btn').innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Parar cámara';
-    _sactive=true;_sc=null;_sctx=null;_sframes=0;
-    // Iniciar scan cuando el video tenga dimensiones
-    const startLoop=()=>requestAnimationFrame(doScan);
-    if(v.readyState>=2){startLoop()}
-    else{v.onloadeddata=startLoop;v.play().catch(()=>{})}
-    // Fallback si el video ya está listo antes del onloadeddata
-    setTimeout(()=>{if(_sactive&&!_sc)startLoop()},800);
-  }catch(e){
-    camStream=null;
-    toast('Cámara no disponible','err');
-  }
+    v.onloadedmetadata=function(){
+      v.play().catch(function(){});
+      requestAnimationFrame(doScan);
+    };
+    setTimeout(function(){
+      if(_sactive)requestAnimationFrame(doScan);
+    },1000);
+  }).catch(function(e){
+    _sactive=false;camStream=null;
+    toast('Cámara no disponible: '+e.name,'err');
+  });
 }
 function stopCam(){
   _sactive=false;
