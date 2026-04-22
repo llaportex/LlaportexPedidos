@@ -150,7 +150,7 @@ textarea.finp{resize:none;min-height:60px}
 /* ITEMS */
 .scan-btn{background:var(--text);color:#fff;border:none;border-radius:var(--rsm);padding:13px 20px;width:100%;display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:600;margin-bottom:12px}
 .scan-btn:hover{background:#000}
-.cam-wrap{position:relative;width:100%;aspect-ratio:1;background:#000;border-radius:var(--r);overflow:hidden;margin-bottom:12px}
+.cam-wrap{position:relative;width:100%;aspect-ratio:1;background:#000;border-radius:var(--r);overflow:hidden;margin-bottom:8px}
 .cam-wrap video{width:100%;height:100%;object-fit:cover}
 .scan-ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
 .scan-box{width:55%;aspect-ratio:1;border:2px solid #fff;border-radius:8px;box-shadow:0 0 0 999px rgba(0,0,0,.5)}
@@ -622,34 +622,20 @@ textarea.finp{resize:none;min-height:60px}
           <span class="tgl-k"></span>
         </button>
       </div>
-      <!-- TOGGLE PRECIOS -->
-      <div class="toggle-row">
-        <div class="toggle-info">
-          <strong>Incluir precios en PDF</strong>
-          <span>Mostrar precios unitarios en el documento</span>
-        </div>
-        <button class="tgl on" id="tgl-prices" onclick="this.classList.toggle('on');inclPrecios=this.classList.contains('on')">
-          <span class="tgl-k"></span>
-        </button>
-      </div>
-      <!-- TOGGLE TOTALES -->
-      <div class="toggle-row">
-        <div class="toggle-info">
-          <strong>Mostrar totales por línea</strong>
-          <span>Calcular y mostrar el total de metros en el PDF</span>
-        </div>
-        <button class="tgl on" id="tgl-totals" onclick="this.classList.toggle('on');inclTotals=this.classList.contains('on')">
-          <span class="tgl-k"></span>
-        </button>
-      </div>
-      <!-- CÁMARA -->
-      <div class="cam-wrap" id="cam-wrap" style="display:none">
-        <video id="cam-video" playsinline autoplay muted></video>
-        <div class="scan-ov"><div class="scan-box"></div><div class="scan-line"></div></div>
+      <!-- PRECIO MODE -->
+      <div class="tlbl" style="margin-bottom:10px;font-size:13px;font-weight:600;color:var(--text2)">💶 Precios en el PDF</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px">
+        <button class="price-opt" data-mode="none" onclick="setPriceMode('none')">🚫 Sin precios</button>
+        <button class="price-opt price-opt-active" data-mode="unit" onclick="setPriceMode('unit')">€ Precio unitario</button>
+        <button class="price-opt" data-mode="scale" onclick="setPriceMode('scale')">📊 Por escalado</button>
+        <button class="price-opt" data-mode="total" onclick="setPriceMode('total')">🧮 Precio + total</button>
       </div>
       <button class="scan-btn" id="cam-btn" onclick="toggleCam()">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="17" width="4" height="4"/></svg>
         Escanear código QR
+      </button>
+      <button id="stop-scan-btn" onclick="stopCam()" style="display:none;width:100%;padding:12px;background:#ef4444;color:#fff;border:none;border-radius:var(--r);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px">
+        ⏹ Finalizar escaneo
       </button>
       <div class="sbox">
         <span class="si"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
@@ -733,7 +719,7 @@ let ST={
 let order={id:'',client:null,brandId:'',date:'',notes:'',items:[]};
 let modoRef=false;
 let catBrandFilter=null; // marca seleccionada en catálogo
-let inclPrecios=true;
+let (_priceMode!=='none')=true;
 let inclTotals=true;
 let lastOrder=null;
 let step=1;
@@ -889,7 +875,7 @@ function startWizard(){
   const tref=document.getElementById('tgl-ref');
   if(tref){tref.classList.remove('on');modoRef=false}
   const tprice=document.getElementById('tgl-prices');
-  if(tprice){tprice.classList.add('on');inclPrecios=true}
+  if(tprice){tprice.classList.add('on');(_priceMode!=='none')=true}
   const ttotals=document.getElementById('tgl-totals');
   if(ttotals){ttotals.classList.add('on');inclTotals=true}
   // Generar nuevo ID
@@ -1023,7 +1009,7 @@ function toggleCam(){
     _scanning=true;
     var v=document.getElementById('cam-video');
     v.srcObject=stream;
-    document.getElementById('cam-wrap').style.display='block';
+    document.getElementById('cam-wrap').style.display='block';document.getElementById('stop-scan-btn').style.display='block';document.getElementById('cam-btn').style.display='none';
     document.getElementById('cam-btn').innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Parar cámara';
     v.onloadeddata=function(){scanFrame()};
     v.play().catch(function(){});
@@ -1037,7 +1023,7 @@ function stopCam(){
   _scanning=false;
   if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}
   _sc=null;_sctx=null;
-  var w=document.getElementById('cam-wrap');if(w)w.style.display='none';
+  var w=document.getElementById('cam-wrap');if(w)w.style.display='none';document.getElementById('stop-scan-btn').style.display='none';document.getElementById('cam-btn').style.display='block';
   var b=document.getElementById('cam-btn');
   if(b)b.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="17" width="4" height="4"/></svg> Escanear código QR';
 }
@@ -1052,8 +1038,14 @@ function scanFrame(){
   if(window.BarcodeDetector){
     new window.BarcodeDetector({formats:['qr_code']}).detect(v).then(function(codes){
       if(codes&&codes.length>0&&codes[0].rawValue){
-        _scanning=false;stopCam();
-        addItemByCode(codes[0].rawValue.trim());
+        var val=codes[0].rawValue.trim();
+        playBeep('ok');
+        addItemByCode(val);
+        // Pausa breve para evitar doble lectura, luego sigue escaneando
+        _scanning=false;
+        setTimeout(function(){
+          if(camStream){_scanning=true;requestAnimationFrame(scanFrame);}
+        },1500);
       } else {
         if(_scanning)requestAnimationFrame(scanFrame);
       }
@@ -1067,6 +1059,43 @@ function scanFrame(){
   scanWithJsQR(v,W,H);
 }
 
+
+
+// ── MODO PRECIO PDF ──
+var _priceMode='unit'; // none | unit | scale | total
+function setPriceMode(mode){
+  _priceMode=mode;
+  document.querySelectorAll('.price-opt').forEach(function(b){
+    b.classList.toggle('price-opt-active', b.dataset.mode===mode);
+  });
+  renderPreview();
+}
+function getPriceMode(){return _priceMode;}
+// ── SONIDOS ──
+function playBeep(type){
+  try{
+    var ctx=new(window.AudioContext||window.webkitAudioContext)();
+    var osc=ctx.createOscillator();
+    var gain=ctx.createGain();
+    osc.connect(gain);gain.connect(ctx.destination);
+    if(type==='ok'){
+      // Beep corto agudo - éxito
+      osc.frequency.setValueAtTime(880,ctx.currentTime);
+      osc.frequency.setValueAtTime(1320,ctx.currentTime+0.1);
+      gain.gain.setValueAtTime(0.3,ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.25);
+      osc.start(ctx.currentTime);osc.stop(ctx.currentTime+0.25);
+    } else {
+      // Beep grave - error/no reconocido
+      osc.frequency.setValueAtTime(220,ctx.currentTime);
+      osc.frequency.setValueAtTime(180,ctx.currentTime+0.15);
+      gain.gain.setValueAtTime(0.3,ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.35);
+      osc.start(ctx.currentTime);osc.stop(ctx.currentTime+0.35);
+    }
+    setTimeout(function(){ctx.close();},500);
+  }catch(e){}
+}
 function scanWithJsQR(v,W,H){
   if(!_sc||_sc.width!==W){
     _sc=document.createElement('canvas');_sc.width=W;_sc.height=H;
@@ -1076,8 +1105,14 @@ function scanWithJsQR(v,W,H){
   var img=_sctx.getImageData(0,0,W,H);
   var code=jsQR(img.data,img.width,img.height,{inversionAttempts:'attemptBoth'});
   if(code&&code.data){
-    _scanning=false;stopCam();
-    addItemByCode(code.data.trim());return;
+    var val=code.data.trim();
+    playBeep('ok');
+    addItemByCode(val);
+    _scanning=false;
+    setTimeout(function(){
+      if(camStream){_scanning=true;requestAnimationFrame(scanFrame);}
+    },1500);
+    return;
   }
   if(_scanning)requestAnimationFrame(scanFrame);
 }
@@ -1103,8 +1138,9 @@ function searchItems(){
 }
 function addItemByCode(code){
   const ref=ST.refs.find(r=>r.code===code||r.name===code);
-  const price=parseFloat(ref?.price||0); // Siempre guardar precio real
-  const item={ref:ref?.code||code,name:ref?.name||code,price,var1:ref?.variant||'',obs:'',isRef:modoRef,qty:1};
+  if(!ref){playBeep('err');toast('Código no encontrado: '+code,'err');return;}
+  const price=parseFloat(ref.price||0);
+  const item={ref:ref.code,name:ref.name,price,var1:ref.variant||'',obs:'',isRef:modoRef,qty:1};
   const ex=order.items.find(i=>i.ref===item.ref);
   if(ex){ex.qty++}else{order.items.push(item)}
   document.getElementById('item-q').value='';
@@ -1211,7 +1247,7 @@ function closeOrder(){
     id:order.id,client:{...order.client},brandId:order.brandId,
     date:order.date,notes:order.notes,
     items:[...order.items],
-    modoRef,inclPrecios,inclTotals,
+    modoRef,(_priceMode!=='none'),inclTotals,
     closedAt:new Date().toISOString(),
     total:modoRef?0:order.items.reduce((a,x)=>a+(x.isRef?0:x.price*x.qty),0)
   };
@@ -1893,7 +1929,7 @@ function genPDF(o){
   const cl=o.client||{};
   const brand=ST.brands.find(b=>b.id==o.brandId);
   const clObj=ST.clients.find(c=>c.name===cl.name);
-  const showP=o.inclPrecios!==false;
+  const showP=o.(_priceMode!=='none')!==false;
   const isRef=o.modoRef||false;
   const total=isRef?0:o.items.reduce((a,x)=>a+(x.isRef?0:x.price*x.qty),0);
   const rows=o.items.map(x=>{
